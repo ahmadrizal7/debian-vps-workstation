@@ -1,0 +1,51 @@
+# Beginner Profile
+# Safe defaults, minimal complexity, quick setup
+# Estimated time: ~30 minutes
+
+# Uses all defaults from default.yaml with these overrides:
+
+system:
+  hostname: dev-workstation
+  timezone: Asia/Jakarta
+
+# Languages (minimal set)
+languages:
+  python:
+    enabled: true
+  nodejs:
+    enabled: true
+  golang:
+    enabled: false
+  rust:
+    enabled: false
+  java:
+    enabled: false
+  php:
+    enabled: false
+
+# Tools
+tools:
+  docker:
+    enabled: true
+  git:
+    enabled: true
+    github_cli: true
+  editors:
+    vscode:
+      enabled: true
+    cursor:
+      enabled: false
+    neovim:
+      enabled: false
+
+# Networking (disabled for beginners)
+networking:
+  wireguard:
+    enabled: false
+  caddy:
+    enabled: false
+
+# Monitoring (enabled for visibility)
+monitoring:
+  netdata:
+    enabled: true

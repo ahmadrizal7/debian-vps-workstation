@@ -1,0 +1,49 @@
+# Intermediate Profile
+# Balanced configuration with more features
+# Estimated time: ~45 minutes
+
+system:
+  hostname: dev-workstation
+  timezone: UTC
+
+# Languages (extended set)
+languages:
+  python:
+    enabled: true
+  nodejs:
+    enabled: true
+  golang:
+    enabled: true
+  rust:
+    enabled: false
+  java:
+    enabled: false
+  php:
+    enabled: false
+
+# Tools
+tools:
+  docker:
+    enabled: true
+  git:
+    enabled: true
+    github_cli: true
+  editors:
+    vscode:
+      enabled: true
+    cursor:
+      enabled: true
+    neovim:
+      enabled: true
+
+# Networking
+networking:
+  wireguard:
+    enabled: false
+  caddy:
+    enabled: true
+
+# Monitoring
+monitoring:
+  netdata:
+    enabled: true

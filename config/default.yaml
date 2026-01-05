@@ -1,0 +1,95 @@
+# Debian VPS Workstation Configurator - Default Configuration
+# This file contains the default values for all configuration options.
+
+# System Configuration
+system:
+  hostname: dev-workstation
+  timezone: UTC
+  locale: en_US.UTF-8
+  swap_size_gb: 2
+  kernel_tuning: true
+
+# Security Configuration (MANDATORY - Cannot be disabled)
+security:
+  enabled: true
+  ufw:
+    enabled: true
+    default_incoming: deny
+    default_outgoing: allow
+    ssh_port: 22
+    ssh_rate_limit: true
+  fail2ban:
+    enabled: true
+    ssh_max_retry: 5
+    ssh_ban_time: 3600
+  ssh:
+    disable_root_password: true
+    disable_password_auth: false
+  auto_updates: true
+
+# Desktop Configuration
+desktop:
+  enabled: true
+  xrdp_port: 3389
+  environment: xfce4
+
+# Programming Languages
+languages:
+  python:
+    enabled: true
+    version: system
+    dev_tools:
+      - black
+      - pylint
+      - mypy
+      - pytest
+      - ipython
+  nodejs:
+    enabled: true
+    version: "20"
+    use_nvm: true
+    package_managers:
+      - npm
+      - yarn
+      - pnpm
+  golang:
+    enabled: false
+  rust:
+    enabled: false
+  java:
+    enabled: false
+  php:
+    enabled: false
+
+# Development Tools
+tools:
+  docker:
+    enabled: true
+    compose: true
+  git:
+    enabled: true
+    github_cli: true
+  editors:
+    vscode:
+      enabled: true
+    cursor:
+      enabled: false
+    neovim:
+      enabled: false
+
+# Networking
+networking:
+  wireguard:
+    enabled: false
+  caddy:
+    enabled: false
+
+# Monitoring
+monitoring:
+  netdata:
+    enabled: false
+
+# Installation Options
+interactive: true
+verbose: false
+dry_run: false

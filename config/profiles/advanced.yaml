@@ -1,0 +1,72 @@
+# Advanced Profile
+# Full control, all features enabled
+# Estimated time: ~60 minutes
+
+system:
+  hostname: dev-workstation
+  timezone: UTC
+  kernel_tuning: true
+
+# All languages enabled
+languages:
+  python:
+    enabled: true
+    dev_tools:
+      - black
+      - pylint
+      - mypy
+      - pytest
+      - ipython
+      - poetry
+      - httpie
+  nodejs:
+    enabled: true
+    version: "20"
+    package_managers:
+      - npm
+      - yarn
+      - pnpm
+    global_packages:
+      - typescript
+      - ts-node
+      - nodemon
+      - eslint
+      - prettier
+      - webpack
+      - vite
+  golang:
+    enabled: true
+  rust:
+    enabled: true
+  java:
+    enabled: true
+  php:
+    enabled: true
+
+# All tools
+tools:
+  docker:
+    enabled: true
+    compose: true
+  git:
+    enabled: true
+    github_cli: true
+  editors:
+    vscode:
+      enabled: true
+    cursor:
+      enabled: true
+    neovim:
+      enabled: true
+
+# Networking
+networking:
+  wireguard:
+    enabled: true
+  caddy:
+    enabled: true
+
+# Monitoring
+monitoring:
+  netdata:
+    enabled: true
