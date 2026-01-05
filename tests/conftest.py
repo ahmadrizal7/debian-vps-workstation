@@ -5,8 +5,8 @@ Pytest configuration and fixtures for the test suite.
 import os
 import sys
 from pathlib import Path
+from typing import Any, Dict
 from unittest.mock import MagicMock
-from typing import Dict, Any
 
 import pytest
 
@@ -78,14 +78,14 @@ languages:
 @pytest.fixture
 def mock_os_release(tmp_path):
     """Create a mock /etc/os-release file for Debian 13."""
-    os_release_content = '''PRETTY_NAME="Debian GNU/Linux 13 (trixie)"
+    os_release_content = """PRETTY_NAME="Debian GNU/Linux 13 (trixie)"
 NAME="Debian GNU/Linux"
 VERSION_ID="13"
 VERSION="13 (trixie)"
 VERSION_CODENAME=trixie
 ID=debian
 HOME_URL="https://www.debian.org/"
-'''
+"""
     os_release = tmp_path / "os-release"
     os_release.write_text(os_release_content)
     return os_release
@@ -95,7 +95,7 @@ HOME_URL="https://www.debian.org/"
 def mock_run_command(monkeypatch):
     """Mock the run_command function to avoid actual shell commands."""
     from configurator.utils.command import CommandResult
-    
+
     def mock_run(command, **kwargs):
         return CommandResult(
             command=command if isinstance(command, str) else " ".join(command),
@@ -103,6 +103,6 @@ def mock_run_command(monkeypatch):
             stdout="",
             stderr="",
         )
-    
+
     monkeypatch.setattr("configurator.utils.command.run_command", mock_run)
     return mock_run

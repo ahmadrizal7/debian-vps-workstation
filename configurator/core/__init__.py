@@ -21,15 +21,18 @@ def __getattr__(name):
     """Lazy import to avoid circular imports."""
     if name == "SystemValidator":
         from configurator.core.validator import SystemValidator
+
         return SystemValidator
     elif name == "Installer":
         from configurator.core.installer import Installer
+
         return Installer
     elif name == "ProgressReporter":
         from configurator.core.reporter import ProgressReporter
+
         return ProgressReporter
     elif name == "RollbackManager":
         from configurator.core.rollback import RollbackManager
+
         return RollbackManager
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
-

@@ -18,7 +18,7 @@ from configurator.modules.base import ConfigurationModule
 class Installer:
     """
     Orchestrates the installation of all enabled modules.
-    
+
     Responsibilities:
     - Validate system prerequisites
     - Load and order modules by priority
@@ -26,7 +26,7 @@ class Installer:
     - Handle errors and rollback
     - Report progress
     """
-    
+
     # Module execution order (lower number = higher priority)
     MODULE_PRIORITY = {
         "system": 10,
@@ -50,7 +50,7 @@ class Installer:
         "caddy": 71,
         "netdata": 80,
     }
-    
+
     def __init__(
         self,
         config: ConfigManager,
@@ -59,7 +59,7 @@ class Installer:
     ):
         """
         Initialize installer.
-        
+
         Args:
             config: Configuration manager
             logger: Logger instance
@@ -70,37 +70,39 @@ class Installer:
         self.reporter = reporter or ProgressReporter()
         self.rollback_manager = RollbackManager(self.logger)
         self.validator = SystemValidator(self.logger)
-        
+
         # Module registry - maps names to classes
         self._module_registry: Dict[str, Type[ConfigurationModule]] = {}
         self._register_modules()
-    
+
     def _register_modules(self):
         """Register all available modules."""
         # Import modules here to avoid circular imports
-        from configurator.modules.system import SystemModule
-        from configurator.modules.security import SecurityModule
-        from configurator.modules.desktop import DesktopModule
-        from configurator.modules.python import PythonModule
-        from configurator.modules.nodejs import NodeJSModule
-        from configurator.modules.docker import DockerModule
-        from configurator.modules.git import GitModule
-        from configurator.modules.vscode import VSCodeModule
-        # Phase 6 modules
-        from configurator.modules.golang import GolangModule
-        from configurator.modules.rust import RustModule
-        from configurator.modules.java import JavaModule
-        from configurator.modules.php import PHPModule
-        from configurator.modules.cursor import CursorModule
-        from configurator.modules.neovim import NeovimModule
-        from configurator.modules.wireguard import WireGuardModule
         from configurator.modules.caddy import CaddyModule
-        from configurator.modules.netdata import NetdataModule
+        from configurator.modules.cursor import CursorModule
+
         # Additional modules
         from configurator.modules.databases import DatabasesModule
+        from configurator.modules.desktop import DesktopModule
         from configurator.modules.devops import DevOpsModule
+        from configurator.modules.docker import DockerModule
+        from configurator.modules.git import GitModule
+
+        # Phase 6 modules
+        from configurator.modules.golang import GolangModule
+        from configurator.modules.java import JavaModule
+        from configurator.modules.neovim import NeovimModule
+        from configurator.modules.netdata import NetdataModule
+        from configurator.modules.nodejs import NodeJSModule
+        from configurator.modules.php import PHPModule
+        from configurator.modules.python import PythonModule
+        from configurator.modules.rust import RustModule
+        from configurator.modules.security import SecurityModule
+        from configurator.modules.system import SystemModule
         from configurator.modules.utilities import UtilitiesModule
-        
+        from configurator.modules.vscode import VSCodeModule
+        from configurator.modules.wireguard import WireGuardModule
+
         self._module_registry = {
             # Core
             "system": SystemModule,
@@ -129,7 +131,7 @@ class Installer:
             # Monitoring
             "netdata": NetdataModule,
         }
-    
+
     def install(
         self,
         skip_validation: bool = False,
@@ -137,56 +139,54 @@ class Installer:
     ) -> bool:
         """
         Run the full installation.
-        
+
         Args:
             skip_validation: Skip system validation
             dry_run: Only show what would be done
-            
+
         Returns:
             True if installation was successful
         """
         try:
             # Show banner
             self.reporter.start()
-            
+
             # Validate system
             if not skip_validation:
                 self.reporter.start_phase("System Validation")
                 self.validator.validate_all(strict=True)
                 self.reporter.complete_phase(success=True)
-            
+
             # Get enabled modules
             enabled_modules = self.config.get_enabled_modules()
             self.logger.info(f"Enabled modules: {', '.join(enabled_modules)}")
-            
+
             # Sort by priority
-            sorted_modules = sorted(
-                enabled_modules,
-                key=lambda m: self.MODULE_PRIORITY.get(m, 100)
-            )
-            
+            sorted_modules = sorted(enabled_modules, key=lambda m: self.MODULE_PRIORITY.get(m, 100))
+
             # Execute modules
             results = {}
             for module_name in sorted_modules:
                 if module_name not in self._module_registry:
                     self.logger.warning(f"Module not found: {module_name}")
                     continue
-                
+
                 success = self._execute_module(module_name, dry_run=dry_run)
                 results[module_name] = success
-                
+
                 # Stop on mandatory module failure
                 if not success and module_name in ("system", "security"):
                     self.logger.error(f"Mandatory module {module_name} failed. Stopping.")
                     break
-            
+
             # Show summary
             self.reporter.results = results
             self.reporter.show_summary()
-            
+
             # Check for failures
             if all(results.values()):
                 from configurator.utils.network import get_public_ip
+
                 self.reporter.show_next_steps(
                     rdp_port=self.config.get("desktop.xrdp_port", 3389),
                     public_ip=get_public_ip(),
@@ -195,21 +195,21 @@ class Installer:
             else:
                 self.logger.warning("Some modules failed. Check logs for details.")
                 return False
-                
+
         except PrerequisiteError as e:
             self.logger.error(str(e))
             return False
         except Exception as e:
             self.logger.exception("Unexpected error during installation")
             self.reporter.error(str(e))
-            
+
             # Offer rollback
             if self.rollback_manager.actions:
                 self.logger.info("Attempting rollback...")
                 self.rollback_manager.rollback()
-            
+
             return False
-    
+
     def _execute_module(
         self,
         module_name: str,
@@ -217,60 +217,60 @@ class Installer:
     ) -> bool:
         """
         Execute a single module.
-        
+
         Args:
             module_name: Name of the module
             dry_run: Only show what would be done
-            
+
         Returns:
             True if module executed successfully
         """
         module_class = self._module_registry[module_name]
-        
+
         # Get module-specific config
         module_config = self._get_module_config(module_name)
-        
+
         # Create module instance
         module = module_class(
             config=module_config,
             logger=self.logger,
             rollback_manager=self.rollback_manager,
         )
-        
+
         # Start phase
         self.reporter.start_phase(f"Installing {module.name}")
-        
+
         try:
             # Validate
             self.reporter.update(f"Validating prerequisites...")
             if not module.validate():
                 self.reporter.complete_phase(success=False)
                 return False
-            
+
             if dry_run:
                 self.reporter.update(f"[dry-run] Would install {module.name}")
                 self.reporter.complete_phase(success=True)
                 return True
-            
+
             # Configure/Install
             self.reporter.update(f"Configuring...")
             if not module.configure():
                 self.reporter.complete_phase(success=False)
                 return False
-            
+
             # Verify
             self.reporter.update(f"Verifying installation...")
             if not module.verify():
                 self.reporter.warning(f"Verification warnings for {module.name}")
-            
+
             self.reporter.complete_phase(success=True)
             return True
-            
+
         except Exception as e:
             self.logger.error(f"Module {module_name} failed: {e}")
             self.reporter.complete_phase(success=False)
             return False
-    
+
     def _get_module_config(self, module_name: str) -> Dict[str, Any]:
         """Get configuration for a specific module."""
         # Check common paths for module configuration
@@ -282,7 +282,7 @@ class Installer:
             f"monitoring.{module_name}",
             module_name,
         ]
-        
+
         for path in paths:
             config = self.config.get(path)
             if config is not None:
@@ -290,73 +290,73 @@ class Installer:
                     return config
                 else:
                     return {"enabled": config}
-        
+
         return {}
-    
+
     def verify(self) -> bool:
         """
         Verify installed components.
-        
+
         Returns:
             True if all expected components are working
         """
         self.reporter.start_phase("Verification")
-        
+
         enabled_modules = self.config.get_enabled_modules()
         results = {}
-        
+
         for module_name in enabled_modules:
             if module_name not in self._module_registry:
                 continue
-            
+
             module_class = self._module_registry[module_name]
             module_config = self._get_module_config(module_name)
-            
+
             module = module_class(
                 config=module_config,
                 logger=self.logger,
                 rollback_manager=self.rollback_manager,
             )
-            
+
             try:
                 success = module.verify()
                 results[module_name] = success
-                
+
                 status = "✓" if success else "✗"
                 self.reporter.update(f"{status} {module.name}")
-                
+
             except Exception as e:
                 results[module_name] = False
                 self.reporter.update(f"✗ {module.name}: {e}")
-        
+
         self.reporter.complete_phase(success=all(results.values()))
-        
+
         # Show summary
         self.reporter.results = results
         self.reporter.show_summary()
-        
+
         return all(results.values())
-    
+
     def rollback(self) -> bool:
         """
         Rollback previous installation.
-        
+
         Returns:
             True if rollback was successful
         """
         # Try to load state from previous run
         self.rollback_manager.load_state()
-        
+
         if not self.rollback_manager.actions:
             self.logger.info("No rollback actions found")
             return True
-        
+
         self.reporter.start_phase("Rollback")
-        
+
         self.logger.info(self.rollback_manager.get_summary())
-        
+
         success = self.rollback_manager.rollback()
-        
+
         self.reporter.complete_phase(success=success)
-        
+
         return success
