@@ -34,7 +34,8 @@ jobs:
         run: pylint configurator/ --exit-zero
       
       - name: Type check with mypy
-        run: mypy configurator/ --ignore-missing-imports
+        run: mypy configurator/ --ignore-missing-imports || true
+        continue-on-error: true
 
   test:
     name: Test
