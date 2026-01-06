@@ -292,6 +292,12 @@ APT::Periodic::AutocleanInterval "7";
         )
 
         # Enable the service
-        self.run("dpkg-reconfigure -plow unattended-upgrades", check=False)
+        env = os.environ.copy()
+        env["DEBIAN_FRONTEND"] = "noninteractive"
+        self.run(
+            "dpkg-reconfigure -f noninteractive -plow unattended-upgrades",
+            check=False,
+            env=env,
+        )
 
         self.logger.info("✓ Automatic security updates enabled")
