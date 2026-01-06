@@ -33,7 +33,7 @@ class Installer:
     MODULE_PRIORITY = {
         "system": 10,
         "security": 20,  # Security is mandatory
-        "rbac": 25,      # RBAC module
+        "rbac": 25,  # RBAC module
         "desktop": 30,
         "python": 40,
         "nodejs": 41,

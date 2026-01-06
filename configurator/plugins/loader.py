@@ -123,11 +123,7 @@ class PluginLoader:
         plugin_class = None
         for name in dir(module):
             obj = getattr(module, name)
-            if (
-                isinstance(obj, type)
-                and issubclass(obj, PluginBase)
-                and obj is not PluginBase
-            ):
+            if isinstance(obj, type) and issubclass(obj, PluginBase) and obj is not PluginBase:
                 plugin_class = obj
                 break
 
@@ -172,9 +168,7 @@ class PluginManager:
         for plugin in discovered:
             if plugin.info.name not in self._plugins:
                 self._plugins[plugin.info.name] = plugin
-                self.logger.info(
-                    f"Loaded plugin: {plugin.info.name} v{plugin.info.version}"
-                )
+                self.logger.info(f"Loaded plugin: {plugin.info.name} v{plugin.info.version}")
 
         return len(self._plugins)
 
