@@ -21,6 +21,7 @@ from configurator.modules.netdata import NetdataModule
 from configurator.modules.nodejs import NodeJSModule
 from configurator.modules.php import PHPModule
 from configurator.modules.python import PythonModule
+from configurator.modules.rbac import RBACModule
 from configurator.modules.rust import RustModule
 from configurator.modules.security import SecurityModule
 from configurator.modules.system import SystemModule
@@ -34,6 +35,7 @@ __all__ = [
     "SystemModule",
     "SecurityModule",
     "DesktopModule",
+    "RBACModule",
     # Languages
     "PythonModule",
     "NodeJSModule",

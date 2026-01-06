@@ -8,11 +8,13 @@ import logging
 from typing import Any, Dict, List, Optional, Type
 
 from configurator.config import ConfigManager
+from configurator.core.hooks import HooksManager, HookType
 from configurator.core.reporter import ProgressReporter
 from configurator.core.rollback import RollbackManager
 from configurator.core.validator import SystemValidator
 from configurator.exceptions import ModuleExecutionError, PrerequisiteError
 from configurator.modules.base import ConfigurationModule
+from configurator.plugins.loader import PluginManager
 
 
 class Installer:
@@ -31,6 +33,7 @@ class Installer:
     MODULE_PRIORITY = {
         "system": 10,
         "security": 20,  # Security is mandatory
+        "rbac": 25,      # RBAC module
         "desktop": 30,
         "python": 40,
         "nodejs": 41,
@@ -70,6 +73,8 @@ class Installer:
         self.reporter = reporter or ProgressReporter()
         self.rollback_manager = RollbackManager(self.logger)
         self.validator = SystemValidator(self.logger)
+        self.hooks_manager = HooksManager(self.logger)
+        self.plugin_manager = PluginManager(self.logger)
 
         # Module registry - maps names to classes
         self._module_registry: Dict[str, Type[ConfigurationModule]] = {}
@@ -96,6 +101,7 @@ class Installer:
         from configurator.modules.nodejs import NodeJSModule
         from configurator.modules.php import PHPModule
         from configurator.modules.python import PythonModule
+        from configurator.modules.rbac import RBACModule
         from configurator.modules.rust import RustModule
         from configurator.modules.security import SecurityModule
         from configurator.modules.system import SystemModule
@@ -107,6 +113,7 @@ class Installer:
             # Core
             "system": SystemModule,
             "security": SecurityModule,
+            "rbac": RBACModule,
             "desktop": DesktopModule,
             # Languages
             "python": PythonModule,
@@ -157,6 +164,12 @@ class Installer:
                 self.validator.validate_all(strict=True)
                 self.reporter.complete_phase(success=True)
 
+            # Load plugins
+            self.plugin_manager.load_plugins()
+
+            # Execute pre-install hooks
+            self.hooks_manager.execute(HookType.PRE_INSTALL)
+
             # Get enabled modules
             enabled_modules = self.config.get_enabled_modules()
             self.logger.info(f"Enabled modules: {', '.join(enabled_modules)}")
@@ -198,6 +211,7 @@ class Installer:
 
         except PrerequisiteError as e:
             self.logger.error(str(e))
+            self.hooks_manager.execute(HookType.ON_ERROR)
             return False
         except Exception as e:
             self.logger.exception("Unexpected error during installation")
@@ -205,6 +219,8 @@ class Installer:
 
             # Offer rollback
             if self.rollback_manager.actions:
+                self.hooks_manager.execute(HookType.ON_ERROR)
+                self.hooks_manager.execute(HookType.ON_ROLLBACK)
                 self.logger.info("Attempting rollback...")
                 self.rollback_manager.rollback()
 
@@ -241,6 +257,9 @@ class Installer:
         self.reporter.start_phase(f"Installing {module.name}")
 
         try:
+            # Pre-module hooks
+            self.hooks_manager.execute(HookType.PRE_MODULE, module_name=module_name)
+
             # Validate
             self.reporter.update(f"Validating prerequisites...")
             if not module.validate():
@@ -262,6 +281,9 @@ class Installer:
             self.reporter.update(f"Verifying installation...")
             if not module.verify():
                 self.reporter.warning(f"Verification warnings for {module.name}")
+
+            # Post-module hooks
+            self.hooks_manager.execute(HookType.POST_MODULE, module_name=module_name)
 
             self.reporter.complete_phase(success=True)
             return True
