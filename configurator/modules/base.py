@@ -127,26 +127,29 @@ class ConfigurationModule(ABC):
         **kwargs: Any,
     ) -> CommandResult:
         """
-        Run a shell command with optional rollback registration.
+        Run a shell command.
 
         Args:
-            command: Command to run
-            check: Raise exception on non-zero exit code
-            rollback_command: Command to undo this action
-            description: Description for logging
-            **kwargs: Additional arguments passed to run_command (e.g. env, shell)
-
-        Returns:
-            CommandResult with return code, stdout, stderr
+            command: Command content
+            check: Raise exception if command fails
+            rollback_command: Command to run if this command needs rollback
+            description: Description of the command (for logs/UI)
+            **kwargs: Additional arguments for run_command
         """
-        self.logger.debug(f"Running: {command}")
+        if description:
+            self.logger.debug(f"Running: {description}")
+        else:
+            self.logger.debug(f"Running: {command}")
+
+        # Default to shell=True to support pipes and redirects unless explicitly disabled
+        if "shell" not in kwargs:
+            kwargs["shell"] = True
 
         result = run_command(command, check=check, **kwargs)
 
         if rollback_command and result.success:
             self.rollback_manager.add_command(
-                rollback_command,
-                description=description or f"Undo: {command}",
+                rollback_command, description=f"Rollback: {description or command}"
             )
 
         return result
