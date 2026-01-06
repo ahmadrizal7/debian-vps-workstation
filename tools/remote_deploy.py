@@ -81,7 +81,7 @@ def deploy(hostname, password):
     # For now, let's stop at dry run and ask user, or just run it? 
     # The user asked to "test app". Let's run it.
     print("\n--- Running Configurator (Real Install) ---")
-    cmd_install = f"cd {repo_dir} && .venv/bin/python3 -m configurator install --profile advanced -y --verbose"
+    cmd_install = f"cd {repo_dir} && .venv/bin/python3 -m configurator --verbose install --profile advanced -y"
     
     # We use a wrapper to stream output better if possible, but exec_command waits.
     # This might take a while.
