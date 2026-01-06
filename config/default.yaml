@@ -25,7 +25,156 @@ security:
   ssh:
     disable_root_password: true
     disable_password_auth: false
+
+    # SSH Key Management
+    key_management:
+      enabled: true
+      default_key_type: ed25519 # ed25519, rsa
+      rsa_bits: 4096
+
+    rotation:
+      enabled: true
+      rotation_days: 90
+      grace_period_days: 7
+      auto_rotate: false # Require manual approval
+      expiry_warning_days: 14
+
+    monitoring:
+      stale_key_threshold_days: 180
+
+    audit:
+      enabled: true
+      log_file: /var/log/debian-vps-configurator/ssh-audit.log
+
+  # Multi-Factor Authentication (2FA/MFA)
+  mfa:
+    enabled: false # Opt-in for users
+
+    totp:
+      issuer_name: "Debian VPS Configurator"
+      time_step: 30 # seconds
+      valid_window: 1 # Allow 30s time drift
+
+    backup_codes:
+      count: 10
+      format: "XXXX-XXXX-XXXX"
+
+    lockout:
+      max_failed_attempts: 5
+      lockout_duration_minutes: 30
+
+    pam:
+      enable_for_ssh: true
+      enable_for_sudo: false # Optional, stricter
+
   auto_updates: true
+
+# Role-Based Access Control
+rbac:
+  enabled: true
+  roles_file: /etc/debian-vps-configurator/rbac/roles.yaml
+  assignments_file: /etc/debian-vps-configurator/rbac/assignments.json
+  audit:
+    enabled: true
+    log_file: /var/log/rbac-audit.log
+
+  sudo:
+    enabled: true
+    generate_rules: true
+    sudoers_dir: /etc/sudoers.d/
+    validate_before_apply: true
+
+    policies:
+      default_deny: true
+
+    audit:
+      enabled: true
+      log_file: /var/log/sudo-audit.log
+
+    mfa:
+      enabled: false # Requires PROMPT 2.5 integration
+      critical_commands:
+        - "iptables *"
+        - "apt-get install *"
+        - "rm -rf /*"
+
+# User Lifecycle Management
+users:
+  lifecycle:
+    enabled: true
+
+    provisioning:
+      default_shell: /bin/bash
+      generate_ssh_key: true
+      enable_2fa: false # Optional
+      send_welcome_email: false
+
+    offboarding:
+      archive_data: true
+      archive_retention_days: 2555 # 7 years
+      generate_report: true
+
+    registry:
+      file: /var/lib/debian-vps-configurator/users/registry.json
+
+    audit:
+      enabled: true
+      log_file: /var/log/user-lifecycle-audit.log
+
+  activity_monitoring:
+    enabled: true
+
+    logging:
+      database: /var/lib/debian-vps-configurator/activity/activity.db
+      audit_log: /var/log/activity-audit.log
+      retention_days: 2555 # 7 years
+
+    anomaly_detection:
+      enabled: true
+      baseline_days: 30
+      alert_threshold: 70 # Risk score
+
+    alerts:
+      email: security@company.com
+      slack_webhook: ""
+      pagerduty_key: ""
+
+    compliance:
+      standards: ["soc2", "iso27001", "hipaa"]
+
+  teams:
+    enabled: true
+
+    shared_directories:
+      base_path: /var/projects
+      default_permissions: "2775"
+
+    quotas:
+      default_disk_gb: 50
+      default_containers: 10
+
+    audit:
+      enabled: true
+      log_file: /var/log/team-audit.log
+
+  temp_access:
+    enabled: true
+
+    default_duration_days: 30
+    max_duration_days: 90
+    default_reminder_days: 7
+
+    extension_approval_required: true
+    max_extensions: 2
+
+    emergency_access:
+      enabled: true
+      max_duration_hours: 4
+      require_incident_id: true
+
+    audit:
+      enabled: true
+      log_file: /var/log/temp-access-audit.log
 
 # Desktop Configuration
 desktop:
@@ -96,6 +245,60 @@ performance:
   package_cache:
     enabled: true
     max_size_gb: 10.0
+
+# Vulnerability Scanning
+vulnerability_scanning:
+  enabled: true
+  preferred_scanner: trivy # trivy or grype
+  scan_targets:
+    system: true
+    docker_images: true
+  auto_remediate:
+    enabled: false
+    severity_threshold: high # critical, high, medium, low
+  monitoring:
+    enabled: false
+    interval_hours: 24
+  reporting:
+    format: [html, json]
+    output_dir: reports/vulnerability
+
+# SSL/TLS Certificate Management
+ssl_certificates:
+  enabled: true
+  provider: letsencrypt
+
+  letsencrypt:
+    email: "" # Required for notifications
+    staging: false # Use production by default
+
+  auto_renewal:
+    enabled: true
+    threshold_days: 30
+    schedule: "0 2 * * *" # Daily at 2 AM
+    reload_webserver: true
+
+  challenge:
+    preferred: http-01 # http-01, dns-01, tls-alpn-01
+    dns_plugin: "" # cloudflare, route53, etc.
+
+  monitoring:
+    enabled: true
+    warning_threshold_days: 30
+    critical_threshold_days: 14
+    email_notifications: false
+    slack_webhook: ""
+
+  webserver:
+    type: nginx # nginx, apache, caddy
+    auto_configure: true
+
+  tls_settings:
+    protocols: ["TLSv1.2", "TLSv1.3"]
+    ciphers: "ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256"
+    hsts_enabled: true
+    hsts_max_age: 31536000
+    ocsp_stapling: true
 
 # Installation Options
 interactive: true

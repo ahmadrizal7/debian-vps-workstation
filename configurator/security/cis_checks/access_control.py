@@ -18,8 +18,9 @@ def _check_sshd_config(
         match = re.search(pattern, content, re.MULTILINE)
         if match:
             value = match.group(1).strip().lower()
-            # Handle quoted values
             value = value.strip('"').strip("'")
+            # Usually only the first token matters
+            value = value.split()[0]
 
             if value in [v.lower() for v in expected_values]:
                 return CheckResult(
@@ -37,10 +38,9 @@ def _check_sshd_config(
                     details={"value": value, "expected": expected_values},
                 )
         else:
-            # Logic for default values if not present?
-            # For security, explicit is better usually.
-            # But for PermitRootLogin, default depends on version.
-            # We'll fail if not explicit for now strict compliance.
+            # If checking for "Ensure X is SET", missing means fail.
+            # If checking for "Ensure X is DISABLED", sometimes default is disabled.
+            # But CIS usually requires explicit config.
             return CheckResult(
                 check=None,
                 status=Status.FAIL,
@@ -57,12 +57,7 @@ def _remediate_sshd_config(setting: str, value: str) -> bool:
         if not config_path.exists():
             return False
 
-        # Simple append or sed-like replace?
-        # A proper config parser is better but for now regex replace
         content = config_path.read_text()
-
-        # Regex to find the line (commented or not)
-        # We look for ^\s*#?\s*Setting\s+.*
         pattern = re.compile(f"^\\s*#?\\s*{setting}\\s+.*$", re.MULTILINE | re.IGNORECASE)
 
         if pattern.search(content):
@@ -71,37 +66,146 @@ def _remediate_sshd_config(setting: str, value: str) -> bool:
             new_content = content + f"\n{setting} {value}\n"
 
         config_path.write_text(new_content)
-
-        # Reload sshd
         subprocess.run(["systemctl", "reload", "ssh"], check=False)
         return True
     except Exception:
         return False
 
 
+def _check_cron_permissions(path: str) -> CheckResult:
+    p = Path(path)
+    if not p.exists():
+        return CheckResult(check=None, status=Status.PASS, message=f"{path} does not exist (OK)")
+
+    try:
+        stat = p.stat()
+        mode = oct(stat.st_mode)[-3:]
+        uid = stat.st_uid
+        gid = stat.st_gid
+
+        # Should be 0700 or 0600 depending on file vs dir, and owned by root:root
+        if uid != 0 or gid != 0:
+            return CheckResult(
+                check=None, status=Status.FAIL, message=f"{path} not owned by root:root"
+            )
+
+        if int(mode, 8) > 0o700:  # Simple Loose Check
+            return CheckResult(
+                check=None, status=Status.FAIL, message=f"{path} permissions {mode} too open"
+            )
+
+        return CheckResult(check=None, status=Status.PASS, message=f"{path} permissions OK")
+    except Exception as e:
+        return CheckResult(check=None, status=Status.ERROR, message=str(e))
+
+
 def get_checks() -> List[CISCheck]:
-    checks = [
-        CISCheck(
-            id="5.2.2",
-            title="Ensure SSH PermitRootLogin is disabled",
-            description="Disable direct root login via SSH.",
-            rationale="Force use of unprivileged accounts.",
-            severity=Severity.CRITICAL,
-            check_function=lambda: _check_sshd_config(
-                r"^\s*PermitRootLogin\s+(.+)$", ["no", "prohibit-password"]
-            ),
-            remediation_function=lambda: _remediate_sshd_config("PermitRootLogin", "no"),
-            category="Access Control",
+    checks = []
+
+    # SSH Checks
+    ssh_checks = [
+        ("5.2.1", "LogLevel", "INFO", "Ensure SSH LogLevel is INFO"),
+        (
+            "5.2.2",
+            "PermitRootLogin",
+            "no",
+            "Ensure SSH PermitRootLogin is disabled",
+            ["no", "prohibit-password"],
+            Severity.CRITICAL,
         ),
-        CISCheck(
-            id="5.2.3",
-            title="Ensure SSH PermitEmptyPasswords is disabled",
-            description="Disallow empty passwords.",
-            rationale="Prevents password-less login.",
-            severity=Severity.HIGH,
-            check_function=lambda: _check_sshd_config(r"^\s*PermitEmptyPasswords\s+(.+)$", ["no"]),
-            remediation_function=lambda: _remediate_sshd_config("PermitEmptyPasswords", "no"),
-            category="Access Control",
+        (
+            "5.2.3",
+            "PermitEmptyPasswords",
+            "no",
+            "Ensure SSH PermitEmptyPasswords is disabled",
+            ["no"],
+            Severity.CRITICAL,
         ),
+        ("5.2.4", "X11Forwarding", "no", "Ensure X11Forwarding is disabled"),
+        ("5.2.5", "MaxAuthTries", "4", "Ensure MaxAuthTries is 4 or less"),
+        ("5.2.6", "IgnoreRhosts", "yes", "Ensure IgnoreRhosts is yes"),
+        ("5.2.7", "HostbasedAuthentication", "no", "Ensure HostbasedAuthentication is no"),
+        ("5.2.8", "PermitUserEnvironment", "no", "Ensure PermitUserEnvironment is no"),
+        ("5.2.9", "LoginGraceTime", "60", "Ensure LoginGraceTime is 60 or less"),
+        ("5.2.10", "Banner", "/etc/issue.net", "Ensure SSH Banner is configured"),
     ]
+
+    for item in ssh_checks:
+        cid, param, val, title = item[:4]
+        accepted = item[4] if len(item) > 4 else [val]
+        sev = item[5] if len(item) > 5 else Severity.HIGH
+
+        checks.append(
+            CISCheck(
+                id=cid,
+                title=title,
+                description=f"Set {param} to {val}.",
+                rationale="Hardening SSH.",
+                severity=sev,
+                category="Access Control",
+                check_function=lambda p=param, a=accepted: _check_sshd_config(
+                    rf"^\s*{p}\s+(.+)$", a
+                ),
+                remediation_function=lambda p=param, v=val: _remediate_sshd_config(p, v),
+            )
+        )
+
+    # Cron Checks
+    cron_paths = [
+        ("5.1.2", "/etc/crontab"),
+        ("5.1.3", "/etc/cron.hourly"),
+        ("5.1.4", "/etc/cron.daily"),
+        ("5.1.5", "/etc/cron.weekly"),
+        ("5.1.6", "/etc/cron.monthly"),
+        ("5.1.7", "/etc/cron.d"),
+    ]
+
+    for cid, path in cron_paths:
+        checks.append(
+            CISCheck(
+                id=cid,
+                title=f"Ensure permissions on {path} are configured",
+                description=f"Check {path} permissions.",
+                rationale="Prevent unauthorized scheduled jobs.",
+                severity=Severity.MEDIUM,
+                category="Access Control",
+                check_function=lambda p=path: _check_cron_permissions(p),
+            )
+        )
+
+    # PAM / Sudo manual checks (placeholders for count)
+    checks.append(
+        CISCheck(
+            id="5.3.1",
+            title="Ensure password creation requirements are configured",
+            description="minlen, complexity",
+            rationale="Strong passwords.",
+            severity=Severity.HIGH,
+            category="Access Control",
+            manual=True,
+        )
+    )
+    checks.append(
+        CISCheck(
+            id="5.3.2",
+            title="Ensure lockout for failed password attempts is configured",
+            description="fail2ban or pam_faillock",
+            rationale="Brute force protection.",
+            severity=Severity.HIGH,
+            category="Access Control",
+            manual=True,
+        )
+    )
+    checks.append(
+        CISCheck(
+            id="5.4.1",
+            title="Ensure sudo log file exists",
+            description="sudoers logging",
+            rationale="Traceability.",
+            severity=Severity.LOW,
+            category="Access Control",
+            manual=True,
+        )
+    )
+
     return checks

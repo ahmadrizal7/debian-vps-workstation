@@ -44,37 +44,102 @@ def _remediate_remove_package(package_name: str) -> bool:
         return False
 
 
+def _check_service_masked(service_name: str) -> CheckResult:
+    """Check if a service is masked/disabled"""
+    try:
+        # systemctl list-unit-files | grep service_name
+        # OR systemctl is-enabled
+        res = subprocess.run(
+            ["systemctl", "is-enabled", service_name], capture_output=True, text=True
+        )
+        status = res.stdout.strip()
+        if status in ["masked", "disabled"]:
+            return CheckResult(
+                check=None, status=Status.PASS, message=f"{service_name} is {status}"
+            )
+        elif res.returncode != 0 and "No such file or directory" in res.stderr:
+            return CheckResult(
+                check=None, status=Status.PASS, message=f"{service_name} is not installed"
+            )
+        else:
+            return CheckResult(
+                check=None,
+                status=Status.FAIL,
+                message=f"{service_name} is {status} (should be disabled/masked)",
+                remediation_available=True,
+            )
+    except Exception as e:
+        return CheckResult(check=None, status=Status.ERROR, message=str(e))
+
+
+def _remediate_mask_service(service_name: str) -> bool:
+    try:
+        subprocess.run(["systemctl", "disable", "--now", service_name], check=False)
+        subprocess.run(["systemctl", "mask", service_name], check=True)
+        return True
+    except:
+        return False
+
+
 def get_checks() -> List[CISCheck]:
-    checks = [
-        CISCheck(
-            id="2.1.1",
-            title="Ensure xinetd is not installed",
-            description="xinetd is a super-server daemon.",
-            rationale="It is rarely needed and increases attack surface.",
-            severity=Severity.MEDIUM,
-            check_function=lambda: _check_package_removed("xinetd"),
-            remediation_function=lambda: _remediate_remove_package("xinetd"),
-            category="Services",
-        ),
-        CISCheck(
-            id="2.2.1",
-            title="Ensure X Window System is not installed",
-            description="GUI environment.",
-            rationale="Servers should not run X11.",
-            severity=Severity.MEDIUM,
-            check_function=lambda: _check_package_removed("xserver-xorg-core"),
-            remediation_function=lambda: _remediate_remove_package("xserver-xorg-core"),
-            category="Services",
-        ),
-        CISCheck(
-            id="2.2.2",
-            title="Ensure Avahi Server is not installed",
-            description="mDNS/DNS-SD daemon.",
-            rationale="Automatic service discovery is not needed on servers.",
-            severity=Severity.LOW,
-            check_function=lambda: _check_package_removed("avahi-daemon"),
-            remediation_function=lambda: _remediate_remove_package("avahi-daemon"),
-            category="Services",
-        ),
+    checks = []
+
+    # 2.1 inetd Services
+    legacy_services = [
+        ("2.1.1", "inetd", "Ensure inetd is not installed"),
+        ("2.1.2", "openbsd-inetd", "Ensure openbsd-inetd is not installed"),
+        ("2.1.3", "xinetd", "Ensure xinetd is not installed"),
     ]
+
+    for cid, pkg, title in legacy_services:
+        checks.append(
+            CISCheck(
+                id=cid,
+                title=title,
+                description=f"Remove {pkg}",
+                rationale="Legacy super-server.",
+                severity=Severity.HIGH,
+                category="Services",
+                check_function=lambda p=pkg: _check_package_removed(p),
+                remediation_function=lambda p=pkg: _remediate_remove_package(p),
+            )
+        )
+
+    # 2.2 Special Purpose Services
+    special_services = [
+        ("2.2.1", "xserver-xorg-core", "Ensure X Window System is not installed", Severity.MEDIUM),
+        ("2.2.2", "avahi-daemon", "Ensure Avahi Server is not installed", Severity.LOW),
+        ("2.2.3", "cups", "Ensure CUPS is not installed", Severity.LOW),
+        ("2.2.4", "isc-dhcp-server", "Ensure DHCP Server is not installed", Severity.LOW),
+        ("2.2.5", "slapd", "Ensure LDAP server is not installed", Severity.LOW),
+        ("2.2.6", "nfs-kernel-server", "Ensure NFS is not installed", Severity.MEDIUM),
+        ("2.2.7", "bind9", "Ensure DNS Server is not installed", Severity.LOW),
+        ("2.2.8", "vsftpd", "Ensure FTP Server is not installed", Severity.HIGH),
+        ("2.2.9", "tftpd-hpa", "Ensure TFTP Server is not installed", Severity.HIGH),
+        ("2.2.10", "smbd", "Ensure Samba is not installed", Severity.HIGH),
+        ("2.2.11", "snmpd", "Ensure SNMP Server is not installed", Severity.MEDIUM),
+        ("2.2.12", "rsync", "Ensure rsync service is not installed (if not needed)", Severity.LOW),
+        ("2.3.1", "nis", "Ensure NIS Server is not installed", Severity.HIGH),
+        ("2.3.2", "rsh-client", "Ensure rsh client is not installed", Severity.HIGH),
+        ("2.3.3", "rsh-redone-client", "Ensure rsh-redone-client is not installed", Severity.HIGH),
+        ("2.3.4", "talk", "Ensure talk client is not installed", Severity.LOW),
+        ("2.3.5", "telnet", "Ensure telnet client is not installed", Severity.HIGH),
+        ("2.3.6", "ldap-utils", "Ensure LDAP client is not installed", Severity.LOW),
+        ("2.3.7", "rpcbind", "Ensure RPC is not installed", Severity.HIGH),
+    ]
+
+    for cid, pkg, title, severity in special_services:
+        checks.append(
+            CISCheck(
+                id=cid,
+                title=title,
+                description=f"Remove {pkg}",
+                rationale="Reduce attack surface.",
+                severity=severity,
+                category="Services",
+                check_function=lambda p=pkg: _check_package_removed(p),
+                remediation_function=lambda p=pkg: _remediate_remove_package(p),
+            )
+        )
+
     return checks

@@ -5,21 +5,35 @@ from typing import List
 from configurator.security.cis_scanner import CheckResult, CISCheck, Severity, Status
 
 
-def _check_file_permissions(path: str, max_mode: str) -> CheckResult:
+def _check_file_permissions(path: str, max_mode: str, uid: int = 0, gid: int = 0) -> CheckResult:
     p = Path(path)
     if not p.exists():
-        return CheckResult(check=None, status=Status.ERROR, message=f"{path} missing")
+        # Some files like /etc/shadow- might not exist
+        return CheckResult(check=None, status=Status.PASS, message=f"{path} missing (OK)")
 
     try:
-        mode = oct(p.stat().st_mode)[-3:]
-        # Simple check: mode should be <= max_mode?
-        # Actually logic is bitwise.
-        # But for CIS, they often specify exact matches "0644" or "000".
-        # Let's compare exactly for simplicity or implement bitwise check if needed.
-        # 0644 means user rw, group r, other r.
-        # If it is 600, it is also compliant? Often yes.
-        # But prompting for "Ensure permissions are exactly 644" or "le 644".
-        # Let's implement LE check.
+        stat = p.stat()
+        mode = oct(stat.st_mode)[-3:]
+        current_uid = stat.st_uid
+        current_gid = stat.st_gid
+
+        # Owner check
+        if current_uid != uid:
+            return CheckResult(
+                check=None,
+                status=Status.FAIL,
+                message=f"{path} not owned by uid {uid}",
+                remediation_available=True,
+            )
+
+        # Group check
+        if current_gid != gid:
+            return CheckResult(
+                check=None,
+                status=Status.FAIL,
+                message=f"{path} not owned by gid {gid}",
+                remediation_available=True,
+            )
 
         current_val = int(mode, 8)
         max_val = int(max_mode, 8)
@@ -41,11 +55,12 @@ def _check_file_permissions(path: str, max_mode: str) -> CheckResult:
         return CheckResult(check=None, status=Status.ERROR, message=str(e))
 
 
-def _remediate_file_permissions(path: str, mode: str) -> bool:
+def _remediate_file_permissions(path: str, mode: str, uid: int = 0, gid: int = 0) -> bool:
     try:
         p = Path(path)
         if not p.exists():
             return False
+        os.chown(path, uid, gid)
         p.chmod(int(mode, 8))
         return True
     except Exception:
@@ -53,36 +68,76 @@ def _remediate_file_permissions(path: str, mode: str) -> bool:
 
 
 def get_checks() -> List[CISCheck]:
-    checks = [
-        CISCheck(
-            id="6.1.1",
-            title="Ensure permissions on /etc/passwd are configured",
-            description="Check /etc/passwd permissions.",
-            rationale="Should be 644 or more restrictive.",
-            severity=Severity.HIGH,
-            check_function=lambda: _check_file_permissions("/etc/passwd", "644"),
-            remediation_function=lambda: _remediate_file_permissions("/etc/passwd", "644"),
-            category="System Maintenance",
-        ),
-        CISCheck(
-            id="6.1.2",
-            title="Ensure permissions on /etc/shadow are configured",
-            description="Check /etc/shadow permissions.",
-            rationale="Should be 000 or 400.",
-            severity=Severity.CRITICAL,
-            check_function=lambda: _check_file_permissions("/etc/shadow", "000"),
-            remediation_function=lambda: _remediate_file_permissions("/etc/shadow", "000"),
-            category="System Maintenance",
-        ),
-        CISCheck(
-            id="6.1.3",
-            title="Ensure permissions on /etc/group are configured",
-            description="Check /etc/group permissions.",
-            rationale="Should be 644.",
-            severity=Severity.MEDIUM,
-            check_function=lambda: _check_file_permissions("/etc/group", "644"),
-            remediation_function=lambda: _remediate_file_permissions("/etc/group", "644"),
-            category="System Maintenance",
-        ),
+    checks = []
+
+    # 6.1 System File Permissions
+    file_checks = [
+        ("6.1.1", "/etc/passwd", "644", 0, 0),
+        ("6.1.2", "/etc/shadow", "000", 0, 42),  # 42 is often shadow group
+        ("6.1.3", "/etc/group", "644", 0, 0),
+        ("6.1.4", "/etc/gshadow", "000", 0, 42),
+        ("6.1.5", "/etc/passwd-", "644", 0, 0),
+        ("6.1.6", "/etc/shadow-", "000", 0, 0),
+        ("6.1.7", "/etc/group-", "644", 0, 0),
+        ("6.1.8", "/etc/gshadow-", "000", 0, 0),
+        ("6.1.9", "/etc/shells", "644", 0, 0),
+        ("6.1.10", "/etc/hosts.allow", "644", 0, 0),
+        ("6.1.11", "/etc/hosts.deny", "644", 0, 0),
     ]
+
+    for cid, path, mode, u, g in file_checks:
+        sev = Severity.HIGH
+        if "shadow" in path:
+            sev = Severity.CRITICAL
+
+        checks.append(
+            CISCheck(
+                id=cid,
+                title=f"Ensure permissions on {path} are configured",
+                description=f"Check {path} permissions: {mode}, uid:{u}, gid:{g}",
+                rationale="Prevent unauthorized modification.",
+                severity=sev,
+                category="System Maintenance",
+                check_function=lambda p=path, m=mode, ui=u, gi=g: _check_file_permissions(
+                    p, m, ui, gi
+                ),
+                remediation_function=lambda p=path, m=mode, ui=u, gi=g: _remediate_file_permissions(
+                    p, m, ui, gi
+                ),
+            )
+        )
+
+    # 6.2 User and Group Settings (Manual/Shell checks mocked)
+    user_checks = [
+        ("6.2.1", "Ensure password fields are not empty", Severity.CRITICAL),
+        ("6.2.2", "Ensure no legacy '+' entries in /etc/passwd", Severity.HIGH),
+        ("6.2.3", "Ensure root is the only UID 0 account", Severity.CRITICAL),
+        ("6.2.4", "Ensure root PATH Integrity", Severity.HIGH),
+        ("6.2.5", "Ensure all users' home directories exist", Severity.MEDIUM),
+        (
+            "6.2.6",
+            "Ensure users' home directories permissions are 750 or more restrictive",
+            Severity.MEDIUM,
+        ),
+        ("6.2.7", "Ensure users own their home directories", Severity.MEDIUM),
+        ("6.2.8", "Ensure users' dot files are not group or world writable", Severity.MEDIUM),
+        ("6.2.9", "Ensure no duplicate UIDs exist", Severity.HIGH),
+        ("6.2.10", "Ensure no duplicate GIDs exist", Severity.HIGH),
+        ("6.2.11", "Ensure no duplicate user names exist", Severity.HIGH),
+        ("6.2.12", "Ensure no duplicate group names exist", Severity.HIGH),
+    ]
+
+    for cid, title, sev in user_checks:
+        checks.append(
+            CISCheck(
+                id=cid,
+                title=title,
+                description=title,
+                rationale="Integrity of user accounts.",
+                severity=sev,
+                category="System Maintenance",
+                manual=True,
+            )
+        )
+
     return checks

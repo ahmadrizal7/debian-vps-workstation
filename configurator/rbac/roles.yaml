@@ -1,0 +1,75 @@
+admin:
+  description: Full system administrator
+  permissions:
+    - system:*
+    - app:*
+    - db:*
+    - user:*
+    - network:*
+    - service:*
+  sudo_access: full
+  sudo_commands: []
+  system_groups:
+    - sudo
+    - admin
+
+devops:
+  description: DevOps engineer - infrastructure and deployment
+  permissions:
+    - system:infrastructure:*
+    - app:*:deploy
+    - app:*:restart
+    - app:*:logs
+    - db:*:backup
+    - db:production:read
+    - network:*
+    - service:*:restart
+    - service:*:status
+  sudo_access: limited
+  sudo_commands:
+    - systemctl restart *
+    - systemctl status *
+    - systemctl reload *
+    - docker *
+    - apt-get update
+    - apt-get upgrade
+  system_groups:
+    - devops
+    - docker
+
+developer:
+  description: Software developer
+  permissions:
+    - app:*:deploy
+    - app:*:logs
+    - app:*:restart
+    - db:development:*
+    - db:staging:*
+    - db:production:read
+    - git:*
+    - docker:build
+    - docker:run
+    - docker:logs
+    - system:logs:read
+  sudo_access: limited
+  sudo_commands:
+    - systemctl restart myapp
+    - systemctl status myapp
+    - journalctl -u myapp
+    - docker ps
+    - docker logs *
+  system_groups:
+    - developers
+    - docker
+
+viewer:
+  description: Read-only access
+  permissions:
+    - system:logs:read
+    - app:*:logs
+    - db:*:read
+    - service:*:status
+  sudo_access: none
+  sudo_commands: []
+  system_groups:
+    - viewers
