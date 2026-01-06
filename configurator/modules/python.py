@@ -49,8 +49,6 @@ class PythonModule(ConfigurationModule):
 
     # Map tools to Debian packages
     TOOL_PACKAGE_MAP = {
-        "black": "python3-black",
-        "pylint": "python3-pylint",
         "mypy": "python3-mypy",
         "pytest": "python3-pytest",
         "ipython": "python3-ipython",
