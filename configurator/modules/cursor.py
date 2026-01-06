@@ -10,8 +10,8 @@ Handles:
 import os
 from pathlib import Path
 
-from configurator.modules.base import ConfigurationModule
 from configurator.exceptions import ModuleExecutionError
+from configurator.modules.base import ConfigurationModule
 from configurator.utils.command import command_exists
 
 
@@ -58,11 +58,11 @@ class CursorModule(ConfigurationModule):
                 why="cursor command not found",
                 how="Check installation logs",
             )
-        
+
         # Check if it was installed via package manager
         result = self.run("dpkg -s cursor", check=False)
         if not result.success:
-             self.logger.warning("Cursor installed but not found in dpkg (manual install?)")
+            self.logger.warning("Cursor installed but not found in dpkg (manual install?)")
 
         self.logger.info("✓ Cursor IDE installed")
 
@@ -71,9 +71,9 @@ class CursorModule(ConfigurationModule):
         # Create config directory
         config_dir = Path.home() / ".config" / "Cursor"
         config_dir.mkdir(parents=True, exist_ok=True)
-        
+
         # Set permissions if running as sudo
-        sudo_user = os.environ.get('SUDO_USER')
+        sudo_user = os.environ.get("SUDO_USER")
         if sudo_user:
             self.run(f"chown -R {sudo_user}:{sudo_user} {config_dir}", check=False)
 
@@ -90,21 +90,21 @@ class CursorModule(ConfigurationModule):
         try:
             # Download with retry logic
             self.run(
-                f"curl -L --retry 3 --retry-delay 5 -o {temp_deb} '{cursor_url}'", 
+                f"curl -L --retry 3 --retry-delay 5 -o {temp_deb} '{cursor_url}'",
                 check=True,
-                description="Download Cursor .deb"
+                description="Download Cursor .deb",
             )
 
             self.logger.info("Installing Cursor package...")
             # Use apt-get install to handle dependencies automatically
             env = os.environ.copy()
             env["DEBIAN_FRONTEND"] = "noninteractive"
-            
+
             self.run(
                 f"apt-get install -y {temp_deb}",
                 check=True,
                 env=env,
-                description="Install Cursor .deb"
+                description="Install Cursor .deb",
             )
 
         except Exception as e:

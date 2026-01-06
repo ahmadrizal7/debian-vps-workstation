@@ -9,42 +9,42 @@ jobs:
   release:
     name: Create Release
     runs-on: ubuntu-latest
-    
+
     permissions:
       contents: write
-    
+
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      
+
       - name: Install build tools
         run: |
           python -m pip install --upgrade pip
           pip install build
-      
+
       - name: Build package
         run: python -m build
-      
+
       - name: Create install script
         run: |
           cat > install.sh << 'EOF'
           #!/bin/bash
           set -e
-          
+
           echo "🚀 Debian VPS Workstation Configurator Installer"
           echo "================================================"
           echo
-          
+
           # Check if running as root
           if [ "$EUID" -ne 0 ]; then
             echo "Please run as root: sudo bash install.sh"
             exit 1
           fi
-          
+
           # Check Debian version
           if ! grep -q "VERSION_ID=\"13\"" /etc/os-release 2>/dev/null; then
             echo "⚠️  Warning: This installer is designed for Debian 13 (Trixie)"
@@ -55,30 +55,30 @@ jobs:
               exit 1
             fi
           fi
-          
+
           # Install Python if needed
           if ! command -v python3 &> /dev/null; then
             echo "📦 Installing Python..."
             apt-get update
             apt-get install -y python3 python3-pip python3-venv
           fi
-          
+
           # Create temp directory
           TEMP_DIR=$(mktemp -d)
           cd "$TEMP_DIR"
-          
+
           # Download latest release
           echo "📥 Downloading configurator..."
           RELEASE_URL="https://github.com/youruser/debian-vps-configurator/releases/latest/download/debian-vps-configurator.tar.gz"
           curl -fsSL "$RELEASE_URL" -o configurator.tar.gz
           tar xzf configurator.tar.gz
           cd debian-vps-configurator
-          
+
           # Install
           echo "📦 Installing..."
           pip3 install -r requirements.txt
           pip3 install -e .
-          
+
           # Run wizard
           echo
           echo "✅ Installation complete!"
@@ -86,7 +86,7 @@ jobs:
           python3 -m configurator wizard
           EOF
           chmod +x install.sh
-      
+
       - name: Create tarball
         run: |
           mkdir -p release
@@ -95,7 +95,7 @@ jobs:
             configurator/ config/ requirements.txt setup.py pyproject.toml README.md LICENSE
           cp install.sh release/
           cp dist/*.whl release/
-      
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
         with:

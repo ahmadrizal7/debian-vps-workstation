@@ -175,7 +175,7 @@ languages:
    ```bash
    cat ~/.ssh/id_ed25519.pub
    ```
-   
+
 3. Copy output to GitHub Settings → SSH Keys
 
 ### Can I use this for production hosting?

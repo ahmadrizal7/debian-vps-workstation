@@ -123,7 +123,7 @@ class CaddyModule(ConfigurationModule):
     # Email for ACME registration (Let's Encrypt)
     # Uncomment and set your email for automatic HTTPS
     # email your@email.com
-    
+
     # Enable admin API on localhost only
     admin localhost:2019
 }}
@@ -132,7 +132,7 @@ class CaddyModule(ConfigurationModule):
 :{self.get_config("port", 80)} {{
     root * /var/www/html
     file_server
-    
+
     # Basic security headers
     header {{
         X-Content-Type-Options nosniff

@@ -1,0 +1,8 @@
+[Unit]
+Description=Debian VPS Configurator File Integrity Check
+After=network.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/vps-configurator fim check
+User=root

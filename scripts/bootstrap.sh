@@ -35,7 +35,7 @@ if [ -f /etc/os-release ]; then
         echo "Detected: $PRETTY_NAME"
         exit 1
     fi
-    
+
     if [ "$VERSION_ID" != "13" ]; then
         echo -e "${YELLOW}Warning: This script is designed for Debian 13 (Trixie)${NC}"
         echo "Detected: $PRETTY_NAME"
@@ -88,11 +88,11 @@ if [ -f "$PROJECT_DIR/requirements.txt" ] && [ -d "$PROJECT_DIR/configurator" ];
     cd "$PROJECT_DIR"
 else
     echo -e "${YELLOW}Configurator not found locally, downloading...${NC}"
-    
+
     # Create temp directory
     TEMP_DIR=$(mktemp -d)
     cd "$TEMP_DIR"
-    
+
     # Try to clone from git
     if command -v git &> /dev/null; then
         echo "Cloning repository..."

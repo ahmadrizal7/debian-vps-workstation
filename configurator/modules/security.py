@@ -11,6 +11,7 @@ Handles:
 """
 
 import os
+
 from configurator.exceptions import ModuleExecutionError
 from configurator.modules.base import ConfigurationModule
 from configurator.utils.file import backup_file, file_contains, write_file
@@ -145,6 +146,23 @@ Your server will be protected with:
         self.logger.info("✓ UFW firewall configured")
         self.logger.info(f"  Allowed ports: SSH ({ssh_port}), RDP (3389)")
 
+        # Audit Log
+        try:
+            from configurator.core.audit import AuditEventType, AuditLogger
+
+            audit = AuditLogger()
+            audit.log_event(
+                AuditEventType.FIREWALL_RULE_ADD,
+                "Configured UFW firewall",
+                details={
+                    "ssh_port": ssh_port,
+                    "rdp_port": 3389,
+                    "ssh_rate_limit": self.get_config("ufw.ssh_rate_limit", True),
+                },
+            )
+        except Exception:
+            pass
+
     def _setup_fail2ban(self):
         """Setup fail2ban for brute force protection."""
         self.logger.info("Setting up fail2ban...")
@@ -260,6 +278,23 @@ PasswordAuthentication no
         self.restart_service("sshd")
 
         self.logger.info("✓ SSH hardened")
+
+        # Audit Log
+        try:
+            from configurator.core.audit import AuditEventType, AuditLogger
+
+            audit = AuditLogger()
+            audit.log_event(
+                AuditEventType.SSH_CONFIG_CHANGE,
+                "Applied SSH hardening configuration",
+                details={
+                    "disable_root_password": disable_root_password,
+                    "disable_password_auth": disable_password_auth,
+                    "permit_empty_passwords": False,
+                },
+            )
+        except Exception:
+            pass
 
     def _enable_auto_updates(self):
         """Enable automatic security updates."""

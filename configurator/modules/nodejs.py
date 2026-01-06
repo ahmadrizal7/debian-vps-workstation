@@ -116,7 +116,7 @@ class NodeJSModule(ConfigurationModule):
         # Explicitly set NVM_DIR
         env = os.environ.copy()
         env["NVM_DIR"] = nvm_dir
-        
+
         result = self.run(
             f"curl -o- {nvm_url} | bash",
             check=False,

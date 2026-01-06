@@ -185,7 +185,32 @@ class RBACModule(ConfigurationModule):
         password = self._generate_password()
         self._set_password(user.username, password)
 
+        # Store password in secrets manager
+        try:
+            from configurator.core.secrets import SecretsManager
+
+            secrets = SecretsManager()
+            secrets.store(f"user_password_{user.username}", password)
+            self.logger.info(
+                f"  Password stored in secrets manager (key: user_password_{user.username})"
+            )
+        except Exception as e:
+            self.logger.warning(f"  Failed to store password in secrets manager: {e}")
+
         self.logger.info(f"  Created with temporary password (use SSH keys for login)")
+
+        # Audit Log
+        try:
+            from configurator.core.audit import AuditEventType, AuditLogger
+
+            audit = AuditLogger()
+            audit.log_event(
+                AuditEventType.USER_CREATE,
+                f"Created user {user.username} with role {user.role}",
+                details={"username": user.username, "role": user.role, "groups": role.groups},
+            )
+        except Exception:
+            pass  # Don't fail installation if audit logging fails
 
     def _configure_groups(self, user: ManagedUser) -> None:
         """Configure user groups based on role."""

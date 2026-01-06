@@ -63,6 +63,10 @@ def check_url_reachable(url: str, timeout: int = 10) -> Tuple[bool, int]:
         return False, 0
 
 
+from configurator.utils.retry import retry
+
+
+@retry(max_retries=3, base_delay=2.0)
 def download_file(
     url: str,
     destination: Path,
@@ -100,7 +104,6 @@ def download_file(
                 for chunk in response.iter_content(chunk_size=8192):
                     f.write(chunk)
                     downloaded += len(chunk)
-                    # Progress could be shown here with Rich
             else:
                 for chunk in response.iter_content(chunk_size=8192):
                     f.write(chunk)
@@ -153,6 +156,7 @@ def get_public_ip() -> Optional[str]:
     return None
 
 
+@retry(max_retries=2, base_delay=1.0)
 def get_latest_github_release(repo: str) -> Optional[dict]:
     """
     Get the latest release info from a GitHub repository.

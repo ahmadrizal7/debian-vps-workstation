@@ -232,29 +232,29 @@ from configurator.modules.base import ConfigurationModule
 
 class NewToolModule(ConfigurationModule):
     """NewTool installation module."""
-    
+
     name = "NewTool"
     description = "Install and configure NewTool"
     priority = 55  # Execution order
     mandatory = False
-    
+
     def validate(self) -> bool:
         """Check prerequisites."""
         # Check requirements
         return True
-    
+
     def configure(self) -> bool:
         """Install and configure."""
         self.logger.info("Installing NewTool...")
-        
+
         # Install packages
         self.install_packages(["newtool"])
-        
+
         # Configure
         # ...
-        
+
         return True
-    
+
     def verify(self) -> bool:
         """Verify installation."""
         return self.command_exists("newtool")
@@ -273,7 +273,7 @@ class NewToolModule(ConfigurationModule):
        # ...
        "newtool": 55,
    }
-   
+
    def _register_modules(self):
        from configurator.modules.newtool import NewToolModule
        self._module_registry["newtool"] = NewToolModule
@@ -308,11 +308,11 @@ Use type hints for all public functions:
 ```python
 def my_function(name: str, count: int = 0) -> bool:
     """Do something.
-    
+
     Args:
         name: The name to process
         count: Optional count
-        
+
     Returns:
         True if successful
     """
@@ -326,14 +326,14 @@ Use Google-style docstrings:
 ```python
 def run_command(cmd: str, timeout: int = 30) -> CommandResult:
     """Run a shell command.
-    
+
     Args:
         cmd: Command to execute
         timeout: Timeout in seconds
-        
+
     Returns:
         CommandResult with return code and output
-        
+
     Raises:
         ModuleExecutionError: If command fails
     """

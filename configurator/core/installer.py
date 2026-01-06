@@ -8,6 +8,8 @@ import logging
 from typing import Any, Dict, List, Optional, Type
 
 from configurator.config import ConfigManager
+from configurator.core.container import Container
+from configurator.core.dryrun import DryRunManager
 from configurator.core.hooks import HooksManager, HookType
 from configurator.core.reporter import ProgressReporter
 from configurator.core.rollback import RollbackManager
@@ -29,7 +31,7 @@ class Installer:
     - Report progress
     """
 
-    # Module execution order (lower number = higher priority)
+    # ... (Module Priority constant remains same) ...
     MODULE_PRIORITY = {
         "system": 10,
         "security": 20,  # Security is mandatory
@@ -59,6 +61,7 @@ class Installer:
         config: ConfigManager,
         logger: Optional[logging.Logger] = None,
         reporter: Optional[ProgressReporter] = None,
+        container: Optional[Container] = None,
     ):
         """
         Initialize installer.
@@ -67,19 +70,34 @@ class Installer:
             config: Configuration manager
             logger: Logger instance
             reporter: Progress reporter
+            container: DI Container instance
         """
         self.config = config
         self.logger = logger or logging.getLogger(__name__)
         self.reporter = reporter or ProgressReporter()
+        self.container = container or Container()
+
+        # Initialize core services
         self.rollback_manager = RollbackManager(self.logger)
         self.validator = SystemValidator(self.logger)
         self.hooks_manager = HooksManager(self.logger)
         self.plugin_manager = PluginManager(self.logger)
+        self.dry_run_manager = DryRunManager()
 
-        # Module registry - maps names to classes
-        self._module_registry: Dict[str, Type[ConfigurationModule]] = {}
+        # Register core services in container
+        self.container.singleton("config", lambda: self.config)
+        self.container.singleton("logger", lambda: self.logger)
+        self.container.singleton("reporter", lambda: self.reporter)
+        self.container.singleton("rollback_manager", lambda: self.rollback_manager)
+        self.container.singleton("validator", lambda: self.validator)
+        self.container.singleton("hooks_manager", lambda: self.hooks_manager)
+        self.container.singleton("plugin_manager", lambda: self.plugin_manager)
+        self.container.singleton("dry_run_manager", lambda: self.dry_run_manager)
+
+        # Module registry - maps names to classes/factories
         self._register_modules()
 
+    # ... _register_modules stays same ...
     def _register_modules(self):
         """Register all available modules."""
         # Import modules here to avoid circular imports
@@ -109,7 +127,7 @@ class Installer:
         from configurator.modules.vscode import VSCodeModule
         from configurator.modules.wireguard import WireGuardModule
 
-        self._module_registry = {
+        module_classes = {
             # Core
             "system": SystemModule,
             "security": SecurityModule,
@@ -137,7 +155,24 @@ class Installer:
             "caddy": CaddyModule,
             # Monitoring
             "netdata": NetdataModule,
+            "netdata": NetdataModule,
         }
+
+        # Register modules in container
+        for name, cls in module_classes.items():
+            self._register_module_factory(name, cls)
+
+    def _register_module_factory(self, name: str, cls: Type[ConfigurationModule]):
+        """Helper to register a module factory."""
+        self.container.factory(
+            name,
+            lambda c, config: cls(
+                config=config,
+                logger=c.get("logger"),
+                rollback_manager=c.get("rollback_manager"),
+                dry_run_manager=c.get("dry_run_manager"),
+            ),
+        )
 
     def install(
         self,
@@ -155,6 +190,11 @@ class Installer:
             True if installation was successful
         """
         try:
+            # Enable Dry Run if requested
+            if dry_run:
+                self.dry_run_manager.enable()
+                self.logger.info("Running in DRY-RUN mode. No changes will be made.")
+
             # Show banner
             self.reporter.start()
 
@@ -180,7 +220,7 @@ class Installer:
             # Execute modules
             results = {}
             for module_name in sorted_modules:
-                if module_name not in self._module_registry:
+                if not self.container.has(module_name):
                     self.logger.warning(f"Module not found: {module_name}")
                     continue
 
@@ -195,6 +235,11 @@ class Installer:
             # Show summary
             self.reporter.results = results
             self.reporter.show_summary()
+
+            # Show report
+            if dry_run:
+                self.dry_run_manager.print_report()
+                return True
 
             # Check for failures
             if all(results.values()):
@@ -218,7 +263,7 @@ class Installer:
             self.reporter.error(str(e))
 
             # Offer rollback
-            if self.rollback_manager.actions:
+            if self.rollback_manager.actions and not dry_run:
                 self.hooks_manager.execute(HookType.ON_ERROR)
                 self.hooks_manager.execute(HookType.ON_ROLLBACK)
                 self.logger.info("Attempting rollback...")
@@ -241,17 +286,11 @@ class Installer:
         Returns:
             True if module executed successfully
         """
-        module_class = self._module_registry[module_name]
-
         # Get module-specific config
         module_config = self._get_module_config(module_name)
 
-        # Create module instance
-        module = module_class(
-            config=module_config,
-            logger=self.logger,
-            rollback_manager=self.rollback_manager,
-        )
+        # Create module instance via container
+        module = self.container.make(module_name, config=module_config)
 
         # Start phase
         self.reporter.start_phase(f"Installing {module.name}")
@@ -266,13 +305,9 @@ class Installer:
                 self.reporter.complete_phase(success=False)
                 return False
 
-            if dry_run:
-                self.reporter.update(f"[dry-run] Would install {module.name}")
-                self.reporter.complete_phase(success=True)
-                return True
+            # Configure/Install (Safe to run in dry mode as module checks dry_run)
+            self.reporter.update(f"Configuring..." if not dry_run else f"Configuring (Dry Run)...")
 
-            # Configure/Install
-            self.reporter.update(f"Configuring...")
             if not module.configure():
                 self.reporter.complete_phase(success=False)
                 return False
@@ -328,17 +363,12 @@ class Installer:
         results = {}
 
         for module_name in enabled_modules:
-            if module_name not in self._module_registry:
+            if not self.container.has(module_name):
                 continue
 
-            module_class = self._module_registry[module_name]
             module_config = self._get_module_config(module_name)
 
-            module = module_class(
-                config=module_config,
-                logger=self.logger,
-                rollback_manager=self.rollback_manager,
-            )
+            module = self.container.make(module_name, config=module_config)
 
             try:
                 success = module.verify()

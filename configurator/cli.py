@@ -337,5 +337,295 @@ def profiles():
         console.print()
 
 
+@main.group()
+def secrets():
+    """Manage encrypted secrets."""
+    pass
+
+
+@secrets.command("set")
+@click.argument("key")
+@click.password_option()
+def secret_set(key: str, password: str):
+    """Store a secure secret."""
+    from configurator.core.secrets import SecretsManager
+
+    try:
+        manager = SecretsManager()
+        manager.store(key, password)
+        console.print(f"[green]✓ Secret '{key}' stored successfully[/green]")
+    except Exception as e:
+        console.print(f"[red]Error storing secret: {e}[/red]")
+        sys.exit(1)
+
+
+@secrets.command("get")
+@click.argument("key")
+def secret_get(key: str):
+    """Retrieve a secure secret."""
+    from configurator.core.secrets import SecretsManager
+
+    try:
+        manager = SecretsManager()
+        value = manager.retrieve(key)
+        if value:
+            console.print(value)
+        else:
+            console.print(f"[yellow]Secret '{key}' not found[/yellow]")
+            sys.exit(1)
+    except Exception as e:
+        console.print(f"[red]Error retrieving secret: {e}[/red]")
+        sys.exit(1)
+
+
+@secrets.command("list")
+def secret_list():
+    """List all stored secret keys."""
+    from configurator.core.secrets import SecretsManager
+
+    try:
+        manager = SecretsManager()
+        keys = manager.list_keys()
+        if keys:
+            console.print("\n[bold]Stored Secrets:[/bold]")
+            for key in keys:
+                console.print(f"  • {key}")
+            console.print()
+        else:
+            console.print("[yellow]No secrets stored.[/yellow]")
+    except Exception as e:
+        console.print(f"[red]Error listing secrets: {e}[/red]")
+        sys.exit(1)
+
+
+@secrets.command("delete")
+@click.argument("key")
+@click.confirmation_option(prompt="Are you sure you want to delete this secret?")
+def secret_delete(key: str):
+    """Delete a stored secret."""
+    from configurator.core.secrets import SecretsManager
+
+    try:
+        manager = SecretsManager()
+        if manager.delete(key):
+            console.print(f"[green]✓ Secret '{key}' deleted successfully[/green]")
+        else:
+            console.print(f"[yellow]Secret '{key}' not found[/yellow]")
+            sys.exit(1)
+    except Exception as e:
+        console.print(f"[red]Error deleting secret: {e}[/red]")
+        sys.exit(1)
+
+
+@main.group()
+def audit():
+    """Query security audit logs."""
+    pass
+
+
+@audit.command("query")
+@click.option("--type", "-t", help="Filter by event type")
+@click.option("--limit", "-n", default=20, help="Number of events to show")
+def audit_query(type: Optional[str], limit: int):
+    """View recent audit events."""
+    from configurator.core.audit import AuditEventType, AuditLogger
+
+    try:
+        if type:
+            # Validate type
+            try:
+                event_type = AuditEventType(type)
+            except ValueError:
+                console.print(f"[red]Invalid event type: {type}. Valid types:[/red]")
+                for mode in AuditEventType:
+                    console.print(f"  {mode.value}")
+                sys.exit(1)
+        else:
+            event_type = None
+
+        logger = AuditLogger()
+        events = logger.query_events(event_type=event_type, limit=limit)
+
+        if not events:
+            console.print("[yellow]No events found.[/yellow]")
+            return
+
+        console.print(f"\n[bold]Audit Log ({len(events)} events)[/bold]\n")
+
+        # Simple table-like output
+        for event in events:
+            timestamp = event.get("timestamp", "").split("T")[1][:8]  # HH:MM:SS
+            evt_type = event.get("event_type", "UNKNOWN")
+            desc = event.get("description", "")
+            success = event.get("success", False)
+            color = "green" if success else "red"
+
+            console.print(f"[{color}]{timestamp} | {evt_type:20} | {desc}[/{color}]")
+            if event.get("details"):
+                console.print(f"    [dim]{event['details']}[/dim]")
+
+    except Exception as e:
+        console.print(f"[red]Error querying audit log: {e}[/red]")
+        sys.exit(1)
+
+
+@main.group()
+def fim():
+    """File Integrity Monitoring."""
+    pass
+
+
+@fim.command("init")
+@click.confirmation_option(prompt="This will reset the baseline. Continue?")
+def fim_init():
+    """Initialize FIM baseline."""
+    from configurator.core.file_integrity import FileIntegrityMonitor
+
+    try:
+        fim = FileIntegrityMonitor()
+        fim.initialize()
+        console.print("[green]✓ FIM baseline initialized successfully[/green]")
+    except Exception as e:
+        console.print(f"[red]Error initializing FIM: {e}[/red]")
+        sys.exit(1)
+
+
+@fim.command("check")
+def fim_check():
+    """Check for file integrity violations."""
+    from configurator.core.file_integrity import FileIntegrityMonitor
+
+    try:
+        fim = FileIntegrityMonitor()
+        violations = fim.check()
+
+        if not violations:
+            console.print("[green]✓ System integrity verified. No changes detected.[/green]")
+            return
+
+        console.print("\n[red bold]⚠ INTEGRITY VIOLATIONS DETECTED![/red bold]\n")
+
+        for v in violations:
+            console.print(f"[red]File: {v['path']}[/red]")
+            console.print(f"  Type: {v['type']}")
+            console.print(f"  Details: {v['details']}")
+            console.print()
+
+        sys.exit(1)
+    except Exception as e:
+        console.print(f"[red]Error performing FIM check: {e}[/red]")
+        sys.exit(1)
+
+
+@fim.command("update")
+@click.argument("file_path")
+def fim_update(file_path: str):
+    """Update baseline for a specific file."""
+    from configurator.core.file_integrity import FileIntegrityMonitor
+
+    try:
+        fim = FileIntegrityMonitor()
+        if fim.update_baseline(file_path):
+            console.print(f"[green]✓ Baseline updated for {file_path}[/green]")
+        else:
+            console.print(f"[red]Failed to update baseline (file exists?)[/red]")
+            sys.exit(1)
+    except Exception as e:
+        console.print(f"[red]Error updating baseline: {e}[/red]")
+        sys.exit(1)
+
+
+@main.group()
+def plugin():
+    """Manage external plugins."""
+    pass
+
+
+@plugin.command("install")
+@click.argument("source")
+def plugin_install(source: str):
+    """
+    Install a plugin from URL or path.
+
+    SOURCE can be a Git URL, HTTP URL (zip/tar.gz), or local path.
+    """
+    from configurator.plugins.loader import PluginManager
+
+    try:
+        manager = PluginManager()
+        if manager.install_plugin(source):
+            console.print(f"[green]✓ Plugin installed successfully from {source}[/green]")
+        else:
+            console.print(f"[red]Failed to install plugin from {source}[/red]")
+            sys.exit(1)
+    except Exception as e:
+        console.print(f"[red]Error installing plugin: {e}[/red]")
+        sys.exit(1)
+
+
+@plugin.command("list")
+def plugin_list():
+    """List installed plugins."""
+    from configurator.plugins.loader import PluginManager
+
+    try:
+        manager = PluginManager()
+        manager.load_plugins()
+        plugins = manager.get_all_plugins()
+
+        if not plugins:
+            console.print("[yellow]No plugins installed.[/yellow]")
+            return
+
+        console.print(f"\n[bold]Installed Plugins ({len(plugins)})[/bold]\n")
+
+        for p in plugins:
+            status = "[green]Enabled[/green]" if p.enabled else "[red]Disabled[/red]"
+            console.print(f"  • {p.info.name} (v{p.info.version}) - {status}")
+            console.print(f"    {p.info.description}")
+            console.print()
+
+    except Exception as e:
+        console.print(f"[red]Error listing plugins: {e}[/red]")
+        sys.exit(1)
+
+
+@plugin.command("enable")
+@click.argument("name")
+def plugin_enable(name: str):
+    """Enable a plugin."""
+    from configurator.plugins.loader import PluginManager
+
+    try:
+        manager = PluginManager()
+        # Note: Plugin state persistence is not yet implemented in PluginManager
+        # This would typically modify a config file.
+        console.print("[yellow]Plugin state persistence not implemented yet.[/yellow]")
+        if manager.enable_plugin(name):
+            console.print(f"[green]Plugin '{name}' enabled (runtime only)[/green]")
+        else:
+            console.print(f"[red]Plugin '{name}' not found[/red]")
+    except Exception as e:
+        console.print(f"[red]Error enabling plugin: {e}[/red]")
+        sys.exit(1)
+
+
+@plugin.command("disable")
+@click.argument("name")
+def plugin_disable(name: str):
+    """Disable a plugin."""
+    from configurator.plugins.loader import PluginManager
+
+    try:
+        manager = PluginManager()
+        if manager.disable_plugin(name):
+            console.print(f"[green]Plugin '{name}' disabled (runtime only)[/green]")
+        else:
+            console.print(f"[red]Plugin '{name}' not found[/red]")
+    except Exception as e:
+        console.print(f"[red]Error disabling plugin: {e}[/red]")
+        sys.exit(1)
+
+
 if __name__ == "__main__":
     main()

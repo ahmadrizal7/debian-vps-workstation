@@ -406,6 +406,61 @@ class ConfigManager:
         Raises:
             ConfigurationError if configuration is invalid
         """
+        try:
+            from pydantic import ValidationError
+
+            from configurator.config_schema import Config
+
+            # Use Config model to validate
+            # This handles type checking, constraints, and custom logic
+            Config(**self._config)
+            return True
+
+        except ValidationError as e:
+            # Convert first Pydantic error to user-friendly ConfigurationError
+            error = e.errors()[0]
+
+            # Extract location (e.g., security -> ssh -> port)
+            loc_parts = [str(l) for l in error["loc"]]
+            loc = " -> ".join(loc_parts)
+
+            msg = error["msg"]
+            ctx = error.get("ctx", {})
+
+            # Construct friendly "Why"
+            why = f"Validation failed for '{loc}': {msg}"
+
+            # Construct friendly "How"
+            how = "Check the configuration file or flags against the schema."
+
+            # Customized advice based on error type
+            err_type = error.get("type", "")
+
+            if "int" in err_type:
+                how = f"The field '{loc}' requires a whole number (integer)."
+            elif "bool" in err_type:
+                how = f"The field '{loc}' requires a boolean value (true/false)."
+            elif "missing" in err_type:
+                how = f"The required field '{loc_parts[-1]}' is missing. Please add it to your configuration."
+            elif "greater_than" in err_type:
+                limit = ctx.get("gt") or ctx.get("ge")
+                how = f"The value must be greater than {limit}."
+            elif "less_than" in err_type:
+                limit = ctx.get("lt") or ctx.get("le")
+                how = f"The value must be less than {limit}."
+
+            raise ConfigurationError(
+                what=f"Configuration Error: {loc}",
+                why=why,
+                how=how,
+            )
+        except ImportError:
+            # Fallback if pydantic not found (should be installed)
+            self.validate_legacy()
+            return True
+
+    def validate_legacy(self) -> bool:
+        """Legacy validation logic."""
         # Security cannot be disabled
         if not self.get("security.enabled", True):
             raise ConfigurationError(
@@ -434,7 +489,6 @@ class ConfigManager:
                 why="Swap size must be a non-negative number",
                 how="Set swap_size_gb to 0 (disabled) or a positive number",
             )
-
         return True
 
     @classmethod

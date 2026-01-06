@@ -5,8 +5,10 @@ Allows users to run custom scripts or functions at various
 points during the installation process.
 """
 
+import importlib.util
 import logging
 import subprocess
+import sys
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
@@ -248,10 +250,89 @@ class HooksManager:
         )
 
     def _register_python_hook(self, script_path: Path) -> None:
-        """Register a Python script as a hook."""
-        # Similar parsing as shell scripts
-        # Python hooks should define a `run(context)` function
-        pass  # TODO: Implement Python hook loading
+        """
+        Register a Python script as a hook.
+
+        The script should define a `run(context: HookContext)` function.
+        Can optionally define `HOOK_TYPE`, `PRIORITY`, and `MODULE_NAME`.
+        """
+        try:
+            # Load module
+            module_name = f"configurator_hooks_{script_path.stem}"
+            spec = importlib.util.spec_from_file_location(module_name, script_path)
+            if spec is None or spec.loader is None:
+                self.logger.warning(f"Could not load hook spec from {script_path}")
+                return
+
+            module = importlib.util.module_from_spec(spec)
+            sys.modules[module_name] = module
+            spec.loader.exec_module(module)
+
+            # Check for run function
+            if not hasattr(module, "run") or not callable(module.run):
+                self.logger.warning(f"Python hook {script_path} missing 'run(context)' function")
+                return
+
+            # Determine hook properties from module attributes or filename
+            name = script_path.stem
+            parts = name.split("-", 2)
+
+            # Default from filename
+            priority_default = 50
+            hook_type_default = None
+            module_name_default = None
+
+            if len(parts) >= 2:
+                try:
+                    priority_default = int(parts[0])
+                    hook_type_str = parts[1]
+                except ValueError:
+                    hook_type_str = parts[0]
+            else:
+                hook_type_str = name
+
+            if hook_type_str == "pre_install":
+                hook_type_default = HookType.PRE_INSTALL
+            elif hook_type_str == "post_install":
+                hook_type_default = HookType.POST_INSTALL
+            elif hook_type_str.startswith("pre_module_"):
+                hook_type_default = HookType.PRE_MODULE
+                module_name_default = hook_type_str.replace("pre_module_", "")
+            elif hook_type_str.startswith("post_module_"):
+                hook_type_default = HookType.POST_MODULE
+                module_name_default = hook_type_str.replace("post_module_", "")
+            elif hook_type_str == "on_error":
+                hook_type_default = HookType.ON_ERROR
+            elif hook_type_str == "on_rollback":
+                hook_type_default = HookType.ON_ROLLBACK
+
+            # Allow module override
+            hook_type = getattr(module, "HOOK_TYPE", hook_type_default)
+            if isinstance(hook_type, str):
+                try:
+                    hook_type = HookType(hook_type)
+                except ValueError:
+                    self.logger.warning(f"Invalid HOOK_TYPE string in {script_path}")
+                    hook_type = None
+
+            priority = getattr(module, "PRIORITY", priority_default)
+            target_module = getattr(module, "MODULE_NAME", module_name_default)
+
+            if hook_type is None:
+                self.logger.debug(f"Could not determine hook type for {script_path}")
+                return
+
+            # Register
+            self.register(
+                hook_type=hook_type,
+                handler=module.run,
+                name=f"python:{script_path.name}",
+                priority=priority,
+                module_name=target_module,
+            )
+
+        except Exception as e:
+            self.logger.error(f"Failed to load Python hook {script_path}: {e}")
 
     def get_hooks(self, hook_type: Optional[HookType] = None) -> List[Hook]:
         """

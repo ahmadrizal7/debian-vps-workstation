@@ -5,14 +5,14 @@ Provides the interface that all modules must implement.
 """
 
 import logging
+import os
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional
 
 from configurator.core.rollback import RollbackManager
 from configurator.exceptions import ModuleExecutionError
 from configurator.utils.command import CommandResult, run_command
-import os
-
+from configurator.utils.retry import retry
 
 
 class ConfigurationModule(ABC):
@@ -39,6 +39,7 @@ class ConfigurationModule(ABC):
         config: Dict[str, Any],
         logger: Optional[logging.Logger] = None,
         rollback_manager: Optional[RollbackManager] = None,
+        dry_run_manager: Optional["DryRunManager"] = None,
     ):
         """
         Initialize the module.
@@ -47,10 +48,15 @@ class ConfigurationModule(ABC):
             config: Module-specific configuration
             logger: Logger instance
             rollback_manager: Rollback manager for tracking changes
+            dry_run_manager: Manager for dry-run recording
         """
         self.config = config
         self.logger = logger or logging.getLogger(self.__class__.__name__)
         self.rollback_manager = rollback_manager or RollbackManager()
+        self.dry_run_manager = dry_run_manager
+
+        # Dry run state
+        self.dry_run = dry_run_manager.is_enabled if dry_run_manager else False
 
         # State tracking
         self.state: Dict[str, Any] = {}
@@ -124,6 +130,7 @@ class ConfigurationModule(ABC):
         check: bool = True,
         rollback_command: Optional[str] = None,
         description: str = "",
+        force_execute: bool = False,
         **kwargs: Any,
     ) -> CommandResult:
         """
@@ -134,12 +141,19 @@ class ConfigurationModule(ABC):
             check: Raise exception if command fails
             rollback_command: Command to run if this command needs rollback
             description: Description of the command (for logs/UI)
+            force_execute: Execute command even in dry-run mode (use checks)
             **kwargs: Additional arguments for run_command
         """
         if description:
             self.logger.debug(f"Running: {description}")
         else:
             self.logger.debug(f"Running: {command}")
+
+        # Dry run check
+        if self.dry_run and not force_execute:
+            if self.dry_run_manager:
+                self.dry_run_manager.record_command(command)
+            return CommandResult(command=command, return_code=0, stdout="", stderr="")
 
         # Default to shell=True to support pipes and redirects unless explicitly disabled
         if "shell" not in kwargs:
@@ -154,6 +168,7 @@ class ConfigurationModule(ABC):
 
         return result
 
+    @retry(max_retries=3, base_delay=2.0)
     def install_packages(
         self,
         packages: List[str],
@@ -174,15 +189,20 @@ class ConfigurationModule(ABC):
 
         self.logger.info(f"Installing packages: {', '.join(packages)}")
 
+        if self.dry_run:
+            if self.dry_run_manager:
+                self.dry_run_manager.record_package_install(packages)
+            return True
+
         if update_cache:
             self.run("apt-get update", check=False)
 
         # Install packages
         packages_str = " ".join(packages)
-        
+
         env = os.environ.copy()
         env["DEBIAN_FRONTEND"] = "noninteractive"
-        
+
         result = self.run(
             f"apt-get install -y {packages_str}",
             check=True,
@@ -211,6 +231,12 @@ class ConfigurationModule(ABC):
         """
         self.logger.info(f"Enabling service: {service}")
 
+        if self.dry_run:
+            if self.dry_run_manager:
+                action = "start" if start else "enable"
+                self.dry_run_manager.record_service_action(service, action)
+            return True
+
         self.run(f"systemctl enable {service}", check=True)
 
         if start:
@@ -231,6 +257,12 @@ class ConfigurationModule(ABC):
             True if successful
         """
         self.logger.info(f"Restarting service: {service}")
+
+        if self.dry_run:
+            if self.dry_run_manager:
+                self.dry_run_manager.record_service_action(service, "restart")
+            return True
+
         result = self.run(f"systemctl restart {service}", check=False)
         return result.success
 
@@ -244,7 +276,8 @@ class ConfigurationModule(ABC):
         Returns:
             True if service is active
         """
-        result = self.run(f"systemctl is-active {service}", check=False)
+        # Always run check commands (read-only)
+        result = self.run(f"systemctl is-active {service}", check=False, force_execute=True)
         return result.stdout.strip() == "active"
 
     def command_exists(self, command: str) -> bool:
@@ -257,8 +290,24 @@ class ConfigurationModule(ABC):
         Returns:
             True if command exists
         """
-        result = self.run(f"which {command}", check=False)
+        # Always run check commands
+        result = self.run(f"which {command}", check=False, force_execute=True)
         return result.success
+
+    def write_file(
+        self, path: str, content: str, mode: str = "w", backup: bool = False, **kwargs
+    ) -> None:
+        """
+        Write content to file (with dry-run support).
+        """
+        if self.dry_run:
+            if self.dry_run_manager:
+                self.dry_run_manager.record_file_write(path, content)
+            return
+
+        from configurator.utils.file import write_file as utils_write_file
+
+        utils_write_file(path, content, mode=mode, backup=backup, **kwargs)
 
     def get_config(self, key: str, default: Any = None) -> Any:
         """

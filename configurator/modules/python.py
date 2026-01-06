@@ -164,14 +164,14 @@ class PythonModule(ConfigurationModule):
             # But usually we want these for the user.
             # If running as root, 'pipx install' goes to /root/.local/bin
             # We explicitly allow this for now, or just warn.
-            
+
             for tool in pipx_tools:
                 self.logger.info(f"Installing {tool} via pipx...")
                 result = self.run(f"pipx install {tool} --global", check=False)
-                
+
                 if not result.success:
-                     # Try without --global
-                     result = self.run(f"pipx install {tool}", check=False)
+                    # Try without --global
+                    result = self.run(f"pipx install {tool}", check=False)
 
                 if result.success:
                     self.logger.info(f"  ✓ Installed {tool} (pipx)")

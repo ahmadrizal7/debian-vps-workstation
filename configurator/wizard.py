@@ -1,319 +1,333 @@
 """
-Interactive setup wizard for beginners.
-
-Provides a friendly, guided configuration experience
-with progressive disclosure based on user experience level.
+Interactive setup wizard using Textual TUI.
 """
 
-import logging
-import sys
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
-from rich.console import Console
-from rich.panel import Panel
-from rich.prompt import Confirm, Prompt
-from rich.table import Table
+from textual import on
+from textual.app import App, ComposeResult
+from textual.containers import Container, Grid, Horizontal, Vertical
+from textual.screen import Screen
+from textual.widgets import Button, Checkbox, Footer, Header, Input, Label, Markdown, Select, Static
 
 from configurator.config import ConfigManager
 
 
-class InteractiveWizard:
-    """
-    Interactive wizard for configuring the workstation.
+class WizardScreen(Screen):
+    """Base screen for wizard steps."""
 
-    Uses progressive disclosure to show appropriate options
-    based on user experience level.
-    """
+    def compose_header(self, title: str) -> ComposeResult:
+        yield Header(show_clock=True)
+        yield Label(f"Step: {title}", classes="step-title")
 
-    # Common timezones
-    TIMEZONES = {
-        "1": "Asia/Jakarta",
-        "2": "UTC",
-        "3": "America/New_York",
-        "4": "America/Los_Angeles",
-        "5": "Europe/London",
-        "6": "Europe/Berlin",
-        "7": "Asia/Singapore",
-        "8": "Asia/Tokyo",
-    }
 
-    def __init__(
-        self,
-        console: Optional[Console] = None,
-        logger: Optional[logging.Logger] = None,
-    ):
-        """
-        Initialize wizard.
-
-        Args:
-            console: Rich console instance
-            logger: Logger instance
-        """
-        self.console = console or Console()
-        self.logger = logger or logging.getLogger(__name__)
-        self.config: Dict[str, Any] = {}
-
-    def run(self) -> Optional[Dict[str, Any]]:
-        """
-        Run the interactive wizard.
-
-        Returns:
-            Configuration dictionary, or None if cancelled
-        """
-        try:
-            # Welcome
-            self._show_welcome()
-
-            # Step 1: Select experience level
-            profile = self._select_profile()
-            self.config["profile"] = profile
-
-            # Step 2: Basic configuration (all profiles)
-            self._configure_basic()
-
-            # Step 3: Profile-specific configuration
-            if profile == "beginner":
-                self._configure_beginner()
-            elif profile == "intermediate":
-                self._configure_intermediate()
-            else:
-                self._configure_advanced()
-
-            # Step 4: Show installation plan and confirm
-            if not self._confirm_installation():
-                return None
-
-            return self.config
-
-        except KeyboardInterrupt:
-            self.console.print("\n[yellow]Setup cancelled.[/yellow]")
-            return None
-
-    def _show_welcome(self):
-        """Display welcome banner."""
-        welcome_text = """
-[bold cyan]🚀 Debian 13 VPS Workstation Configurator[/bold cyan]
+class WelcomeScreen(WizardScreen):
+    def compose(self) -> ComposeResult:
+        yield from self.compose_header("Welcome")
+        yield Vertical(
+            Markdown(
+                """
+# 🚀 Debian VPS Configurator
 
 Transform your VPS into a coding powerhouse!
 
 This wizard will guide you through the setup process.
-It should take about 5 minutes to answer all questions,
-then 30-60 minutes for the actual installation.
+It handles:
+- **System Hardening** (Firewall, SSH, Fail2ban)
+- **Dev Tools** (Docker, Git, Python, Node, Go)
+- **Productivity** (VS Code, Neovim, Zsh)
+- **Remote Access** (XRDP, WireGuard)
 
-[dim]Press Ctrl+C at any time to cancel.[/dim]
-        """
-
-        self.console.print(Panel(welcome_text.strip(), border_style="cyan"))
-        self.console.print()
-
-    def _select_profile(self) -> str:
-        """Let user select their experience level."""
-        self.console.print("[bold]Step 1: Select Your Experience Level[/bold]\n")
-
-        # Show profile options
-        profiles = ConfigManager.get_profiles()
-
-        self.console.print(
-            "1. 🟢 [green]Beginner[/green] - Quick setup with safe defaults (Recommended)"
+*Press 'Start' to begin configuration.*
+            """
+            ),
+            Button("Start Configuration", variant="primary", id="start"),
+            classes="content",
         )
-        self.console.print("   → Perfect if you're new to Linux")
-        self.console.print("   → Installs: Remote Desktop, Python, Node.js, Docker, VS Code")
-        self.console.print("   → Takes: ~30 minutes\n")
+        yield Footer()
 
-        self.console.print("2. 🟡 [yellow]Intermediate[/yellow] - More control and features")
-        self.console.print("   → For users comfortable with Linux basics")
-        self.console.print("   → Adds: Go, Cursor IDE, Neovim, Caddy, monitoring")
-        self.console.print("   → Takes: ~45 minutes\n")
+    @on(Button.Pressed, "#start")
+    def action_start(self):
+        self.app.push_screen(ProfileScreen())
 
-        self.console.print("3. 🔴 [red]Advanced[/red] - Full control, all features")
-        self.console.print("   → For power users and sysadmins")
-        self.console.print("   → Adds: All languages, VPN, custom configuration")
-        self.console.print("   → Takes: ~60 minutes\n")
 
-        choice = Prompt.ask(
-            "Select your level",
-            choices=["1", "2", "3"],
-            default="1",
+class ProfileScreen(WizardScreen):
+    def compose(self) -> ComposeResult:
+        yield from self.compose_header("Select Profile")
+        yield Label("Choose your experience level and base configuration:", classes="prompt")
+
+        yield Container(
+            Button(
+                "🟢 Beginner\nSafe defaults, essential tools (Python, Node, Docker)",
+                id="beginner",
+                classes="profile-btn",
+            ),
+            Button(
+                "🟡 Intermediate\nMore control. Adds Go, Rust, Neovim, Caddy",
+                id="intermediate",
+                classes="profile-btn",
+            ),
+            Button(
+                "🔴 Advanced\nFull control. Manual selection of all components",
+                id="advanced",
+                classes="profile-btn",
+            ),
+            classes="profile-container",
         )
+        yield Footer()
 
-        profile_map = {"1": "beginner", "2": "intermediate", "3": "advanced"}
-        profile = profile_map[choice]
+    @on(Button.Pressed)
+    def on_button_pressed(self, event: Button.Pressed):
+        profile = event.button.id
+        if profile in ["beginner", "intermediate", "advanced"]:
+            self.app.config_data["profile"] = profile
+            self.app.push_screen(BasicConfigScreen())
 
-        self.console.print(f"\n[green]✓ Selected: {profile.capitalize()} profile[/green]\n")
 
-        return profile
+class BasicConfigScreen(WizardScreen):
+    def compose(self) -> ComposeResult:
+        yield from self.compose_header("System Settings")
 
-    def _configure_basic(self):
-        """Configure basic settings (all profiles)."""
-        self.console.print("[bold]Step 2: Basic Configuration[/bold]\n")
-
-        # Initialize system config
-        self.config["system"] = {}
-
-        # Hostname
-        self.config["system"]["hostname"] = Prompt.ask(
-            "Enter a hostname for your server",
-            default="dev-workstation",
+        yield Vertical(
+            Label("Hostname:", classes="label"),
+            Input(placeholder="dev-workstation", id="hostname"),
+            Label("Timezone:", classes="label"),
+            Select(
+                [
+                    ("UTC", "UTC"),
+                    ("America/New_York", "America/New_York"),
+                    ("America/Los_Angeles", "America/Los_Angeles"),
+                    ("Europe/London", "Europe/London"),
+                    ("Europe/Berlin", "Europe/Berlin"),
+                    ("Asia/Singapore", "Asia/Singapore"),
+                    ("Asia/Tokyo", "Asia/Tokyo"),
+                ],
+                prompt="Select Timezone",
+                id="timezone",
+            ),
+            Button("Next", variant="primary", id="next"),
+            classes="form-container",
         )
+        yield Footer()
 
-        # Timezone
-        self.console.print("\n[bold]Select timezone:[/bold]")
-        for key, tz in self.TIMEZONES.items():
-            self.console.print(f"  {key}. {tz}")
-        self.console.print("  9. Other (enter manually)")
+    @on(Button.Pressed, "#next")
+    def on_next(self):
+        hostname = self.query_one("#hostname", Input).value or "dev-workstation"
+        timezone = self.query_one("#timezone", Select).value or "UTC"
 
-        tz_choice = Prompt.ask(
-            "\nSelect timezone",
-            choices=list(self.TIMEZONES.keys()) + ["9"],
-            default="1",
-        )
+        if "system" not in self.app.config_data:
+            self.app.config_data["system"] = {}
 
-        if tz_choice == "9":
-            self.config["system"]["timezone"] = Prompt.ask("Enter timezone (e.g., America/Chicago)")
+        self.app.config_data["system"]["hostname"] = hostname
+        self.app.config_data["system"]["timezone"] = timezone
+
+        profile = self.app.config_data.get("profile", "beginner")
+        if profile == "beginner":
+            self.app.push_screen(ReviewScreen())
         else:
-            self.config["system"]["timezone"] = self.TIMEZONES[tz_choice]
+            self.app.push_screen(AdvancedOptionsScreen())
 
-        self.console.print(f"\n[green]✓ Hostname: {self.config['system']['hostname']}[/green]")
-        self.console.print(f"[green]✓ Timezone: {self.config['system']['timezone']}[/green]\n")
 
-    def _configure_beginner(self):
-        """Configure beginner profile (minimal questions)."""
-        # Beginner profile uses all defaults
-        # Just show what will be installed
-        self.console.print("[bold]Step 3: Review Installation[/bold]\n")
+class AdvancedOptionsScreen(WizardScreen):
+    def compose(self) -> ComposeResult:
+        yield from self.compose_header("Select Components")
 
-        self.console.print("The following will be installed with safe defaults:")
-        self.console.print("  ✓ Security: Firewall, fail2ban, automatic updates")
-        self.console.print("  ✓ Remote Desktop: xrdp + XFCE4")
-        self.console.print("  ✓ Languages: Python 3.11, Node.js 20")
-        self.console.print("  ✓ Tools: Docker, Git, VS Code")
-        self.console.print("  ✓ Monitoring: Netdata\n")
+        yield Grid(
+            Label("[bold]Languages[/bold]", classes="section-header"),
+            Checkbox("Golang", id="golang", value=True),
+            Checkbox("Rust", id="rust", value=True),
+            Checkbox("Java", id="java", value=False),
+            Checkbox("PHP", id="php", value=False),
+            Label("[bold]Editors[/bold]", classes="section-header"),
+            Checkbox("Cursor IDE", id="cursor", value=True),
+            Checkbox("Neovim", id="neovim", value=True),
+            Label("[bold]Networking[/bold]", classes="section-header"),
+            Checkbox("Caddy Server", id="caddy", value=True),
+            Checkbox("WireGuard VPN", id="wireguard", value=False),
+            classes="grid-container",
+        )
+        yield Button("Review Configuration", variant="primary", id="review")
+        yield Footer()
 
-    def _configure_intermediate(self):
-        """Configure intermediate profile."""
-        self.console.print("[bold]Step 3: Additional Configuration[/bold]\n")
-
-        # Ask about additional languages
-        self.config["languages"] = {}
-
-        if Confirm.ask("Install Go (Golang)?", default=True):
-            self.config["languages"]["golang"] = {"enabled": True}
-
-        # Ask about editors
-        self.config["tools"] = {"editors": {}}
-
-        if Confirm.ask("Install Cursor IDE (AI-powered)?", default=True):
-            self.config["tools"]["editors"]["cursor"] = {"enabled": True}
-
-        if Confirm.ask("Install Neovim?", default=True):
-            self.config["tools"]["editors"]["neovim"] = {"enabled": True}
-
-        # Ask about networking
-        self.config["networking"] = {}
-
-        if Confirm.ask("Install Caddy (reverse proxy)?", default=True):
-            self.config["networking"]["caddy"] = {"enabled": True}
-
-        self.console.print()
-
-    def _configure_advanced(self):
-        """Configure advanced profile (full control)."""
-        self.console.print("[bold]Step 3: Advanced Configuration[/bold]\n")
-
-        # Languages
-        self.console.print("[bold]Programming Languages:[/bold]")
-        self.config["languages"] = {}
+    @on(Button.Pressed, "#review")
+    def on_review(self):
+        # Collect checkboxes
+        if "languages" not in self.app.config_data:
+            self.app.config_data["languages"] = {}
+        if "tools" not in self.app.config_data:
+            self.app.config_data["tools"] = {"editors": {}}
+        if "networking" not in self.app.config_data:
+            self.app.config_data["networking"] = {}
 
         for lang in ["golang", "rust", "java", "php"]:
-            default = lang in ["golang"]  # Go is popular, default to yes
-            if Confirm.ask(f"Install {lang.capitalize()}?", default=default):
-                self.config["languages"][lang] = {"enabled": True}
+            if self.query_one(f"#{lang}", Checkbox).value:
+                self.app.config_data["languages"][lang] = {"enabled": True}
 
-        # Editors
-        self.console.print("\n[bold]Code Editors:[/bold]")
-        self.config["tools"] = {"editors": {}}
+        for tool in ["cursor", "neovim"]:
+            if self.query_one(f"#{tool}", Checkbox).value:
+                self.app.config_data["tools"]["editors"][tool] = {"enabled": True}
 
-        for editor in ["cursor", "neovim"]:
-            if Confirm.ask(f"Install {editor.capitalize()}?", default=True):
-                self.config["tools"]["editors"][editor] = {"enabled": True}
+        for net in ["caddy", "wireguard"]:
+            if self.query_one(f"#{net}", Checkbox).value:
+                self.app.config_data["networking"][net] = {"enabled": True}
 
-        # Networking
-        self.console.print("\n[bold]Networking:[/bold]")
-        self.config["networking"] = {}
+        self.app.push_screen(ReviewScreen())
 
-        if Confirm.ask("Install WireGuard VPN?", default=False):
-            self.config["networking"]["wireguard"] = {"enabled": True}
 
-        if Confirm.ask("Install Caddy (reverse proxy)?", default=True):
-            self.config["networking"]["caddy"] = {"enabled": True}
+class ReviewScreen(WizardScreen):
+    def compose(self) -> ComposeResult:
+        yield from self.compose_header("Review & Confirm")
 
-        # Security options
-        self.console.print("\n[bold]Security Options:[/bold]")
-        self.config["security"] = {}
+        # Build summary
+        cfg = self.app.config_data
+        summary = f"""
+## Configuration Summary
 
-        if Confirm.ask("Disable SSH password authentication (keys only)?", default=False):
-            self.config["security"]["ssh"] = {"disable_password_auth": True}
+**Profile**: {cfg.get('profile', 'Unknown').title()}
+**Hostname**: {cfg.get('system', {}).get('hostname')}
+**Timezone**: {cfg.get('system', {}).get('timezone')}
 
-        self.console.print()
+### Components to Install:
+- System Hardening & Monitoring
+- Docker & Git
+- Python & Node.js
+"""
+        # Add dynamic components
+        langs = [k for k, v in cfg.get("languages", {}).items() if v.get("enabled")]
+        if langs:
+            summary += f"- Languages: {', '.join(langs)}\n"
 
-    def _confirm_installation(self) -> bool:
-        """Show installation plan and ask for confirmation."""
-        self.console.print("[bold]Step 4: Confirm Installation[/bold]\n")
+        editors = [
+            k for k, v in cfg.get("tools", {}).get("editors", {}).items() if v.get("enabled")
+        ]
+        if editors:
+            summary += f"- Editors: {', '.join(editors)}\n"
 
-        # Build summary table
-        table = Table(title="Installation Plan", show_header=True)
-        table.add_column("Component", style="cyan")
-        table.add_column("Status", style="green")
+        nets = [k for k, v in cfg.get("networking", {}).items() if v.get("enabled")]
+        if nets:
+            summary += f"- Network: {', '.join(nets)}\n"
 
-        # Always installed
-        table.add_row("System Configuration", "✓ Will install")
-        table.add_row("Security Hardening", "✓ Will install (mandatory)")
-        table.add_row("Remote Desktop (xrdp)", "✓ Will install")
-        table.add_row("Python", "✓ Will install")
-        table.add_row("Node.js", "✓ Will install")
-        table.add_row("Docker", "✓ Will install")
-        table.add_row("Git", "✓ Will install")
-        table.add_row("VS Code", "✓ Will install")
+        yield Markdown(summary, classes="review-content")
 
-        # Profile-specific
-        profile = self.config.get("profile", "beginner")
-
-        if profile in ["intermediate", "advanced"]:
-            langs = self.config.get("languages", {})
-            if langs.get("golang", {}).get("enabled"):
-                table.add_row("Go (Golang)", "✓ Will install")
-            if langs.get("rust", {}).get("enabled"):
-                table.add_row("Rust", "✓ Will install")
-            if langs.get("java", {}).get("enabled"):
-                table.add_row("Java", "✓ Will install")
-            if langs.get("php", {}).get("enabled"):
-                table.add_row("PHP", "✓ Will install")
-
-            editors = self.config.get("tools", {}).get("editors", {})
-            if editors.get("cursor", {}).get("enabled"):
-                table.add_row("Cursor IDE", "✓ Will install")
-            if editors.get("neovim", {}).get("enabled"):
-                table.add_row("Neovim", "✓ Will install")
-
-            networking = self.config.get("networking", {})
-            if networking.get("wireguard", {}).get("enabled"):
-                table.add_row("WireGuard VPN", "✓ Will install")
-            if networking.get("caddy", {}).get("enabled"):
-                table.add_row("Caddy", "✓ Will install")
-
-        table.add_row("Netdata Monitoring", "✓ Will install")
-
-        self.console.print(table)
-
-        # Estimate time
-        times = {"beginner": 30, "intermediate": 45, "advanced": 60}
-        estimated_time = times.get(profile, 45)
-
-        self.console.print(f"\n[dim]Estimated installation time: ~{estimated_time} minutes[/dim]")
-
-        self.console.print("\n[yellow]⚠️  This will modify your system configuration.[/yellow]")
-        self.console.print(
-            "[yellow]   Make sure you have a backup or snapshot of your VPS.[/yellow]\n"
+        yield Horizontal(
+            Button("Cancel", variant="error", id="cancel"),
+            Button("🚀 INSTALL NOW", variant="success", id="install"),
+            classes="actions",
         )
+        yield Footer()
 
-        return Confirm.ask("Ready to start installation?", default=True)
+    @on(Button.Pressed, "#install")
+    def action_install(self):
+        self.app.confirmed = True
+        self.app.exit(self.app.config_data)
+
+    @on(Button.Pressed, "#cancel")
+    def action_cancel(self):
+        self.app.exit(None)
+
+
+class VPSWizardApp(App):
+    CSS = """
+    Screen {
+        align: center middle;
+        background: $surface-darken-1;
+    }
+
+    .step-title {
+        text-align: center;
+        text-style: bold;
+        background: $primary;
+        color: $text;
+        width: 100%;
+        padding: 1;
+    }
+
+    .content {
+        width: 60%;
+        height: auto;
+        border: solid $primary;
+        padding: 2;
+        background: $surface;
+    }
+
+    .prompt {
+        padding: 1;
+        text-align: center;
+    }
+
+    .profile-container {
+        layout: vertical;
+        align: center middle;
+        height: auto;
+    }
+
+    .profile-btn {
+        width: 50;
+        margin: 1;
+        height: 3;
+    }
+
+    .form-container {
+        width: 50%;
+        height: auto;
+        border: solid $accent;
+        padding: 2;
+    }
+
+    .label {
+        margin-top: 1;
+    }
+
+    .grid-container {
+        grid-size: 2;
+        grid-gutter: 1 2;
+        width: 80%;
+        height: 60%;
+        border: solid $success;
+        padding: 1;
+        overflow-y: auto;
+    }
+
+    .section-header {
+        column-span: 2;
+        text-align: center;
+        color: $text-muted;
+        margin-top: 1;
+    }
+
+    .review-content {
+        width: 70%;
+        height: 60%;
+        border: double $warning;
+        padding: 1;
+        background: $surface;
+    }
+
+    .actions {
+        width: 70%;
+        align: center middle;
+        margin-top: 1;
+    }
+
+    #install {
+        margin-left: 2;
+    }
+    """
+
+    def __init__(self):
+        super().__init__()
+        self.config_data: Dict[str, Any] = {}
+        self.confirmed = False
+
+    def on_mount(self):
+        self.push_screen(WelcomeScreen())
+
+
+class InteractiveWizard:
+    def __init__(self, console=None, logger=None):
+        pass
+
+    def run(self) -> Optional[Dict[str, Any]]:
+        app = VPSWizardApp()
+        result = app.run()
+        return result

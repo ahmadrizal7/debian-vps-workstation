@@ -216,7 +216,7 @@ class ProgressReporter:
    • Windows: Open Remote Desktop Connection
    • Mac: Use Microsoft Remote Desktop from App Store
    • Linux: Use Remmina or rdesktop
-   
+
    [bold]Connection details:[/bold]
    • Address: {ip_display}:{rdp_port}
    • Username: Your Linux username

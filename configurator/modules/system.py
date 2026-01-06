@@ -10,8 +10,8 @@ Handles:
 - Kernel parameter tuning
 """
 
-import re
 import os
+import re
 from typing import Any, Dict
 
 from configurator.exceptions import ModuleExecutionError, PrerequisiteError
@@ -106,8 +106,31 @@ class SystemModule(ConfigurationModule):
         if self.get_config("kernel_tuning", True):
             self._tune_kernel()
 
+        # 8. Initialize FIM
+        self._initialize_fim()
+
         self.logger.info("✓ System configuration complete")
         return True
+
+    def _initialize_fim(self):
+        """Initialize File Integrity Monitoring."""
+        self.logger.info("Initializing File Integrity Monitoring baseline...")
+        try:
+            from configurator.core.file_integrity import FileIntegrityMonitor
+
+            fim = FileIntegrityMonitor()
+            fim.initialize()
+
+            # Enable systemd check if on a systemd system
+            if os.path.isdir("/etc/systemd/system"):
+                # Copy service files from where relevant?
+                # Since this is running as python package, I might not have source files easily.
+                # I'll manually create them or assume they are deployed by installer.
+                # For now, I'll just init the baseline.
+                pass
+
+        except Exception as e:
+            self.logger.warning(f"Failed to initialize FIM: {e}")
 
     def verify(self) -> bool:
         """Verify system configuration."""

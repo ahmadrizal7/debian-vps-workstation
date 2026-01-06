@@ -24,7 +24,7 @@ WARNINGS=0
 check_service() {
     local service=$1
     local name=$2
-    
+
     if systemctl is-active --quiet "$service"; then
         echo -e "  ${GREEN}✓${NC} $name is running"
         ((PASSED++))
@@ -37,7 +37,7 @@ check_service() {
 check_command() {
     local cmd=$1
     local name=$2
-    
+
     if command -v "$cmd" &> /dev/null; then
         local version=$($cmd --version 2>&1 | head -n 1)
         echo -e "  ${GREEN}✓${NC} $name: $version"
@@ -51,7 +51,7 @@ check_command() {
 check_port() {
     local port=$1
     local name=$2
-    
+
     if ss -tlnp | grep -q ":$port "; then
         echo -e "  ${GREEN}✓${NC} $name (port $port) is listening"
         ((PASSED++))

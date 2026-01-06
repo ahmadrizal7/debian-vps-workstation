@@ -159,7 +159,7 @@ local plugins = {
       vim.cmd.colorscheme("tokyonight-night")
     end,
   },
-  
+
   -- Status line
   {
     "nvim-lualine/lualine.nvim",
@@ -168,7 +168,7 @@ local plugins = {
       require("lualine").setup()
     end,
   },
-  
+
   -- File explorer
   {
     "nvim-tree/nvim-tree.lua",
@@ -178,7 +178,7 @@ local plugins = {
       vim.keymap.set("n", "<leader>e", "<cmd>NvimTreeToggle<cr>", { desc = "File Explorer" })
     end,
   },
-  
+
   -- Fuzzy finder
   {
     "nvim-telescope/telescope.nvim",
@@ -191,7 +191,7 @@ local plugins = {
       vim.keymap.set("n", "<leader>fb", builtin.buffers, { desc = "Buffers" })
     end,
   },
-  
+
   -- Git signs
   {
     "lewis6991/gitsigns.nvim",
@@ -199,7 +199,7 @@ local plugins = {
       require("gitsigns").setup()
     end,
   },
-  
+
   -- Treesitter
   {
     "nvim-treesitter/nvim-treesitter",
@@ -212,14 +212,14 @@ local plugins = {
       })
     end,
   },
-  
+
   -- Auto pairs
   {
     "windwp/nvim-autopairs",
     event = "InsertEnter",
     config = true,
   },
-  
+
   -- Which key
   {
     "folke/which-key.nvim",

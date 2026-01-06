@@ -94,7 +94,6 @@ class TestPluginManager:
             patch.object(Path, "iterdir") as mock_iterdir,
             patch.object(Path, "exists", return_value=True),
         ):
-
             fake_file = MagicMock(spec=Path)
             fake_file.suffix = ".py"
             fake_file.name = "test_plugin.py"

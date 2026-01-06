@@ -6,10 +6,17 @@ Handles discovery and loading of plugins from various locations.
 
 import importlib.util
 import logging
+import os
+import shutil
+import subprocess
 import sys
+import tarfile
+import tempfile
+import zipfile
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Type
+from urllib.parse import urlparse
 
 from configurator.plugins.base import PluginBase, PluginError, PluginInfo
 
@@ -285,3 +292,110 @@ class PluginManager:
 
         self._instances.clear()
         self._plugins.clear()
+
+    def install_plugin(self, source: str) -> bool:
+        """
+        Install a plugin from a source (URL, path, zip).
+
+        Args:
+            source: URL or path to plugin
+
+        Returns:
+            True if successful
+        """
+        try:
+            # Determine install directory (user config dir)
+            install_dir = Path.home() / ".config/debian-vps-configurator/plugins"
+            install_dir.mkdir(parents=True, exist_ok=True)
+
+            self.logger.info(f"Installing plugin from {source}...")
+
+            if source.startswith("http") or source.startswith("git"):
+                return self._install_from_remote(source, install_dir)
+            else:
+                return self._install_from_local(Path(source), install_dir)
+
+        except Exception as e:
+            self.logger.error(f"Failed to install plugin: {e}")
+            return False
+
+    def _install_from_remote(self, url: str, target_dir: Path) -> bool:
+        """Install from remote URL."""
+        if url.endswith(".git") or "github.com" in url:
+            # Git clone
+            name = url.split("/")[-1].replace(".git", "")
+            dest = target_dir / name
+
+            if dest.exists():
+                self.logger.warning(f"Plugin directory {dest} already exists. Updating...")
+                subprocess.run(["git", "-C", str(dest), "pull"], check=True)
+            else:
+                subprocess.run(["git", "clone", url, str(dest)], check=True)
+            return True
+
+        elif url.endswith(".zip") or url.endswith(".tar.gz"):
+            # Download and extract
+            import urllib.request
+
+            with tempfile.TemporaryDirectory() as temp_dir:
+                local_file = Path(temp_dir) / Path(url).name
+                self.logger.info(f"Downloading {url}...")
+                urllib.request.urlretrieve(url, local_file)
+                return self._install_archive(local_file, target_dir)
+
+        else:
+            self.logger.error(f"Unsupported remote source: {url}")
+            return False
+
+    def _install_from_local(self, path: Path, target_dir: Path) -> bool:
+        """Install from local path."""
+        path = Path(path).resolve()
+
+        if not path.exists():
+            self.logger.error(f"Source path {path} does not exist")
+            return False
+
+        if path.is_dir():
+            # Copy directory
+            dest = target_dir / path.name
+            if dest.exists():
+                shutil.rmtree(dest)
+            shutil.copytree(path, dest)
+            return True
+
+        elif path.suffix in [".zip", ".tar.gz", ".tgz"]:
+            return self._install_archive(path, target_dir)
+
+        elif path.suffix == ".py":
+            # Copy single file
+            dest = target_dir / path.name
+            shutil.copy2(path, dest)
+            return True
+
+        else:
+            self.logger.error(f"Unsupported local source: {path}")
+            return False
+
+    def _install_archive(self, archive_path: Path, target_dir: Path) -> bool:
+        """Install from archive file."""
+        try:
+            if archive_path.suffix == ".zip":
+                with zipfile.ZipFile(archive_path, "r") as zip_ref:
+                    # check for common prefix
+                    first_file = zip_ref.namelist()[0]
+                    if "/" in first_file:
+                        root_folder = first_file.split("/")[0]
+                        target_path = target_dir / root_folder
+                        if target_path.exists():
+                            shutil.rmtree(target_path)
+
+                    zip_ref.extractall(target_dir)
+            elif archive_path.suffix in [".tar.gz", ".tgz"]:
+                with tarfile.open(archive_path, "r:gz") as tar:
+                    tar.extractall(target_dir)
+
+            self.logger.info(f"Extracted {archive_path.name}")
+            return True
+        except Exception as e:
+            self.logger.error(f"Failed to extract archive: {e}")
+            return False

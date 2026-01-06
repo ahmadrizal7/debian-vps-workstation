@@ -48,7 +48,7 @@ key: value
 
 nested:
   key: value
-  
+
 list:
   - item1
   - item2
@@ -60,8 +60,8 @@ list:
 
 ### `system.hostname`
 
-**Type:** string  
-**Default:** `dev-workstation`  
+**Type:** string
+**Default:** `dev-workstation`
 **Validation:** lowercase alphanumeric with hyphens, max 63 chars
 
 Sets the server's hostname.
@@ -75,7 +75,7 @@ system:
 
 ### `system.timezone`
 
-**Type:** string  
+**Type:** string
 **Default:** `UTC`
 
 Sets the system timezone. Use IANA timezone names.
@@ -99,7 +99,7 @@ Common values:
 
 ### `system.locale`
 
-**Type:** string  
+**Type:** string
 **Default:** `en_US.UTF-8`
 
 Sets the system locale.
@@ -113,8 +113,8 @@ system:
 
 ### `system.swap_size_gb`
 
-**Type:** integer  
-**Default:** `2`  
+**Type:** integer
+**Default:** `2`
 **Range:** 0-16
 
 Size of swap file to create in GB. Set to 0 to disable.
@@ -128,7 +128,7 @@ system:
 
 ### `system.kernel_tuning`
 
-**Type:** boolean  
+**Type:** boolean
 **Default:** `true`
 
 Enable kernel parameter tuning for better performance.
@@ -153,8 +153,8 @@ Tuned parameters include:
 
 ### `security.enabled`
 
-**Type:** boolean  
-**Default:** `true`  
+**Type:** boolean
+**Default:** `true`
 **Override:** Cannot be set to `false`
 
 ```yaml
@@ -230,7 +230,7 @@ security:
 
 ### `security.auto_updates`
 
-**Type:** boolean  
+**Type:** boolean
 **Default:** `true`
 
 Enable automatic security updates.
@@ -246,7 +246,7 @@ security:
 
 ### `desktop.enabled`
 
-**Type:** boolean  
+**Type:** boolean
 **Default:** `true`
 
 Enable remote desktop installation.
@@ -260,7 +260,7 @@ desktop:
 
 ### `desktop.xrdp_port`
 
-**Type:** integer  
+**Type:** integer
 **Default:** `3389`
 
 RDP port number.
@@ -274,7 +274,7 @@ desktop:
 
 ### `desktop.environment`
 
-**Type:** string  
+**Type:** string
 **Default:** `xfce4`
 
 Desktop environment to install.
