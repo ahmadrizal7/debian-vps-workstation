@@ -36,7 +36,7 @@ class SecurityModule(ConfigurationModule):
         # Warn about existing firewall rules
         result = self.run("iptables-save", check=False)
         if result.stdout.strip() and "-A" in result.stdout:
-            self.logger.warning(
+            self.logger.info(
                 "Existing iptables rules detected. " "They will be replaced by UFW configuration."
             )
 

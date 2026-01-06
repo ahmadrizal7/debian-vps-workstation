@@ -115,7 +115,7 @@ class VSCodeModule(ConfigurationModule):
 
         for ext in extensions:
             result = self.run(
-                f"code --install-extension {ext} --force",
+                f"code --install-extension {ext} --force --user-data-dir /root/.config/Code --no-sandbox",
                 check=False,
             )
 

@@ -9,6 +9,7 @@ Handles:
 """
 
 import json
+import os
 
 from configurator.exceptions import ModuleExecutionError
 from configurator.modules.base import ConfigurationModule
@@ -96,6 +97,10 @@ class DockerModule(ConfigurationModule):
     def _add_docker_repository(self):
         """Add Docker's official GPG key and repository."""
         self.logger.info("Adding Docker repository...")
+
+        # Remove conflicting docker.sources if it exists (prevents duplicate target warnings)
+        if os.path.exists("/etc/apt/sources.list.d/docker.sources"):
+            os.remove("/etc/apt/sources.list.d/docker.sources")
 
         # Create keyrings directory
         self.run("install -m 0755 -d /etc/apt/keyrings", check=True)
