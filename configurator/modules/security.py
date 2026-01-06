@@ -268,6 +268,15 @@ PasswordAuthentication no
 
         self.logger.info("Enabling automatic security updates...")
 
+        # Install debconf-utils for preseeding
+        self.install_packages(["debconf-utils"])
+
+        # Preseed unattended-upgrades to enable auto updates without prompt
+        self.run(
+            "echo 'unattended-upgrades unattended-upgrades/enable_auto_updates boolean true' | debconf-set-selections",
+            check=False,
+        )
+
         # Install unattended-upgrades
         self.install_packages(["unattended-upgrades", "apt-listchanges"])
 
