@@ -11,6 +11,8 @@ from typing import Any, Dict, List, Optional
 from configurator.core.rollback import RollbackManager
 from configurator.exceptions import ModuleExecutionError
 from configurator.utils.command import CommandResult, run_command
+import os
+
 
 
 class ConfigurationModule(ABC):
@@ -122,6 +124,7 @@ class ConfigurationModule(ABC):
         check: bool = True,
         rollback_command: Optional[str] = None,
         description: str = "",
+        **kwargs: Any,
     ) -> CommandResult:
         """
         Run a shell command with optional rollback registration.
@@ -131,13 +134,14 @@ class ConfigurationModule(ABC):
             check: Raise exception on non-zero exit code
             rollback_command: Command to undo this action
             description: Description for logging
+            **kwargs: Additional arguments passed to run_command (e.g. env, shell)
 
         Returns:
             CommandResult with return code, stdout, stderr
         """
         self.logger.debug(f"Running: {command}")
 
-        result = run_command(command, check=check)
+        result = run_command(command, check=check, **kwargs)
 
         if rollback_command and result.success:
             self.rollback_manager.add_command(
@@ -172,9 +176,14 @@ class ConfigurationModule(ABC):
 
         # Install packages
         packages_str = " ".join(packages)
+        
+        env = os.environ.copy()
+        env["DEBIAN_FRONTEND"] = "noninteractive"
+        
         result = self.run(
-            f"DEBIAN_FRONTEND=noninteractive apt-get install -y {packages_str}",
+            f"apt-get install -y {packages_str}",
             check=True,
+            env=env,
         )
 
         if result.success:

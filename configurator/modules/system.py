@@ -11,6 +11,7 @@ Handles:
 """
 
 import re
+import os
 from typing import Any, Dict
 
 from configurator.exceptions import ModuleExecutionError, PrerequisiteError
@@ -143,9 +144,12 @@ class SystemModule(ConfigurationModule):
         self.run("apt-get update", check=True)
 
         # Upgrade existing packages
+        env = os.environ.copy()
+        env["DEBIAN_FRONTEND"] = "noninteractive"
         self.run(
-            "DEBIAN_FRONTEND=noninteractive apt-get upgrade -y",
+            "apt-get upgrade -y",
             check=False,  # Don't fail on upgrade issues
+            env=env,
         )
 
     def _install_essentials(self):
