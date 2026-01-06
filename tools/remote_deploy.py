@@ -41,6 +41,9 @@ def deploy(hostname, password):
     
     # 1. Update and install git
     print("\n--- Installing Git ---")
+    # Clean up conflicting docker sources if they exist (prevents apt warnings)
+    run_command(client, "rm -f /etc/apt/sources.list.d/docker.sources", sudo=True)
+    
     if not run_command(client, "apt-get update && apt-get install -y git python3-venv"):
         print("Failed to install prerequisites")
         return
