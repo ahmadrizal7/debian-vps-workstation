@@ -46,7 +46,6 @@ class SystemModule(ConfigurationModule):
         "vim",
         "htop",
         "build-essential",
-        "software-properties-common",
         "apt-transport-https",
         "ca-certificates",
         "gnupg",
