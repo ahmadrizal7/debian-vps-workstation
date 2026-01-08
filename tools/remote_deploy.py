@@ -44,7 +44,7 @@ def deploy(hostname, password):
     # Clean up conflicting docker sources if they exist (prevents apt warnings)
     run_command(client, "rm -f /etc/apt/sources.list.d/docker.sources", sudo=True)
 
-    if not run_command(client, "apt-get update && apt-get install -y git python3-venv"):
+    if not run_command(client, "apt-get update && apt-get install -y git python3-venv rsync"):
         print("Failed to install prerequisites")
         return
 
@@ -65,6 +65,44 @@ def deploy(hostname, password):
         run_command(
             client, f"git clone https://github.com/yunaamelia/debian-vps-workstation.git {repo_dir}"
         )
+
+    # 2.5 RESET SYSTEM (Hardcoded for Debug Workflow)
+    print("\n--- RESETTING SYSTEM (Debug Workflow) ---")
+    print("Stopping services...")
+    run_command(client, "systemctl stop netdata docker wg-quick@wg0 ufw fail2ban || true")
+
+    print("Removing packages...")
+    pkgs = "neovim code netdata docker-ce docker-ce-cli containerd.io wireguard wireguard-tools ufw fail2ban unattended-upgrades google-chrome-stable"
+    run_command(client, f"apt-get remove -y {pkgs} || true")
+    run_command(client, "apt-get autoremove -y || true")
+
+    print("Restoring checkpoint...")
+    # Find latest checkpoint
+    run_command(client, "tar -xzf /root/checkpoints/checkpoint_20260108_144201.tar.gz -C /")
+    print("Checkpoint restored.")
+
+    # Fix APT config broken by checkpoint + package removal
+    print("Removing broken apt config restored from checkpoint...")
+    run_command(client, "rm -f /etc/apt/apt.conf.d/20listchanges /etc/apt/apt.conf.d/*listchanges*")
+
+    # 2.6 SYNC LOCAL CODE
+    print("\n--- SYNCING LOCAL CODE ---")
+    import subprocess
+
+    # Sync configurator/ directory from local to remote
+    local_path = "./configurator"
+    remote_dest = f"root@{hostname}:{repo_dir}/"
+    rsync_cmd = [
+        "rsync",
+        "-avz",
+        "-e",
+        f"sshpass -p {password} ssh -o StrictHostKeyChecking=no",
+        local_path,
+        remote_dest,
+    ]
+    print(f"Executing: {' '.join(rsync_cmd)}")
+    subprocess.run(rsync_cmd, check=True)
+    print("Code synced.")
 
     # 3. Setup Virtualenv
     print("\n--- Setting up Virtualenv ---")

@@ -180,7 +180,7 @@ class ConfigurationModule(ABC):
 
         return result
 
-    @retry(max_retries=3, base_delay=2.0)
+    @retry(max_retries=20, base_delay=5.0)
     def install_packages(
         self,
         packages: List[str],

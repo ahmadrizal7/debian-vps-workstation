@@ -51,7 +51,10 @@ class CaddyModule(ConfigurationModule):
         # 4. Configure firewall
         self._configure_firewall()
 
-        # 5. Start service
+        # 5. Handle conflicts (Apache/Nginx)
+        self._handle_conflicts()
+
+        # 6. Start service
         self._start_service()
 
         self.logger.info("✓ Caddy installed")
@@ -98,15 +101,15 @@ class CaddyModule(ConfigurationModule):
             check=True,
         )
 
-        # Update package lists
-        self.run("apt-get update", check=True)
+        # Update package lists - handled by install_packages safely
+        # self.run("apt-get update", check=True)
 
         self.logger.info("✓ Caddy repository added")
 
     def _install_caddy(self):
         """Install Caddy package."""
         self.logger.info("Installing Caddy...")
-        self.install_packages(["caddy"], update_cache=False)
+        self.install_packages(["caddy"], update_cache=True)
 
     def _create_config(self):
         """Create default Caddyfile."""
@@ -223,3 +226,29 @@ class CaddyModule(ConfigurationModule):
         self.enable_service("caddy")
 
         self.logger.info("✓ Caddy started")
+
+    def _handle_conflicts(self):
+        """Handle conflicting web servers."""
+        conflicts = ["apache2", "nginx"]
+
+        for service in conflicts:
+            # Check if service exists (systemctl list-unit-files)
+            # Or just try to stop/disable and ignore errors
+
+            # We use a safer check
+            # Check if active
+            is_active = self.is_service_active(service)
+
+            # Check if enabled manually since base class doesn't have is_service_enabled
+            result_enabled = self.run(f"systemctl is-enabled {service}", check=False)
+            is_enabled = result_enabled.success or result_enabled.stdout.strip() == "enabled"
+
+            if is_active or is_enabled:
+                self.logger.warning(f"Found conflicting service: {service}")
+                self.logger.info(f"Stopping and disabling {service}...")
+
+                self.run(f"systemctl stop {service}", check=False)
+                self.run(f"systemctl disable {service}", check=False)
+
+                # Verify port 80 is free?
+                # We assume stopping service frees the port.

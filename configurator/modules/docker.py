@@ -149,8 +149,8 @@ class DockerModule(ConfigurationModule):
 
         write_file("/etc/apt/sources.list.d/docker.sources", repo_content)
 
-        # Update package lists
-        self.run("apt-get update", check=True)
+        # Update package lists - handled by install_packages safely
+        # self.run("apt-get update", check=True)
 
         self.logger.info("✓ Docker repository added")
 
@@ -166,7 +166,7 @@ class DockerModule(ConfigurationModule):
             "docker-compose-plugin",
         ]
 
-        self.install_packages(packages, update_cache=False)
+        self.install_packages(packages, update_cache=True)
 
     def _configure_daemon(self):
         """Configure Docker daemon."""

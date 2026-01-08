@@ -101,12 +101,14 @@ class CursorModule(ConfigurationModule):
             env = os.environ.copy()
             env["DEBIAN_FRONTEND"] = "noninteractive"
 
-            self.run(
-                f"apt-get install -y {temp_deb}",
-                check=True,
-                env=env,
-                description="Install Cursor .deb",
-            )
+            # Acquire global APT lock to prevent parallel execution failures
+            with self._APT_LOCK:
+                self.run(
+                    f"apt-get install -y {temp_deb}",
+                    check=True,
+                    env=env,
+                    description="Install Cursor .deb",
+                )
 
         except Exception as e:
             raise ModuleExecutionError(

@@ -23,6 +23,7 @@ class NetdataModule(ConfigurationModule):
     depends_on = ["system"]
     priority = 80
     mandatory = False
+    force_sequential = True
 
     def validate(self) -> bool:
         """Validate Netdata prerequisites."""
@@ -62,10 +63,15 @@ class NetdataModule(ConfigurationModule):
             self.logger.error("Netdata is not running!")
             checks_passed = False
 
-        # Check port
-        result = self.run("ss -tlnp | grep :19999", check=False)
-        if result.success:
-            self.logger.info("✓ Netdata dashboard available on port 19999")
+        # Check port with retry (it takes a moment to bind)
+        import time
+
+        for _ in range(5):
+            result = self.run("ss -tlnp | grep :19999", check=False)
+            if result.success:
+                self.logger.info("✓ Netdata dashboard available on port 19999")
+                break
+            time.sleep(2)
         else:
             self.logger.warning("Netdata port 19999 not listening")
 

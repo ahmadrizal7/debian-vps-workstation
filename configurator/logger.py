@@ -54,7 +54,7 @@ def setup_logger(
         show_path=False,
         rich_tracebacks=True,
         tracebacks_show_locals=verbose,
-        markup=True,
+        markup=False,
     )
     console_handler.setLevel(console_level)
     console_handler.setFormatter(logging.Formatter("%(message)s"))

@@ -101,15 +101,12 @@ class VSCodeModule(ConfigurationModule):
 
         write_file("/etc/apt/sources.list.d/vscode.list", repo_line + "\n")
 
-        # Update package lists
-        self.run("apt-get update", check=True)
-
         self.logger.info("✓ Microsoft repository added")
 
     def _install_vscode(self):
         """Install VS Code package."""
         self.logger.info("Installing VS Code package...")
-        self.install_packages(["code"], update_cache=False)
+        self.install_packages(["code"], update_cache=True)
 
     def _install_extensions(self):
         """Install recommended extensions."""

@@ -72,11 +72,26 @@ class PHPModule(ConfigurationModule):
             checks_passed = False
 
         # Check composer
-        result = self.run("composer --version 2>/dev/null | head -1", check=False)
-        if result.success:
+        # Prevent hangs with timeout and non-interactive mode
+        env = {
+            "COMPOSER_NO_INTERACTIVE": "1",
+            "COMPOSER_ALLOW_SUPERUSER": "1",
+        }
+
+        result = self.run(
+            "composer --version 2>/dev/null | head -1",
+            check=False,
+            timeout=30,  # Prevent indefinite hangs
+            env=env,
+        )
+
+        if result.success and "Composer version" in result.stdout:
             self.logger.info(f"✓ {result.stdout.strip()}")
         else:
-            self.logger.warning("Composer not found")
+            # If verification fails, it's not critical for the installation to crash,
+            # but we should log it.
+            self.logger.warning("Composer verification failed or timed out")
+            # Don't fail the entire module just for composer check if php works
 
         return checks_passed
 
