@@ -108,6 +108,6 @@ def deploy(hostname, password):
 
 
 if __name__ == "__main__":
-    host = "139.59.124.59"
+    host = "206.189.42.66"
     pwd = "gg123123@"
     deploy(host, pwd)

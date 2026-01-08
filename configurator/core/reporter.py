@@ -237,7 +237,9 @@ class ProgressReporter:
         Args:
             message: Error message
         """
-        self.console.print(f"[bold red]❌ Error: {message}[/bold red]")
+        from rich.markup import escape
+
+        self.console.print(f"[bold red]❌ Error: {escape(message)}[/bold red]")
 
     def warning(self, message: str):
         """
@@ -246,7 +248,9 @@ class ProgressReporter:
         Args:
             message: Warning message
         """
-        self.console.print(f"[bold yellow]⚠️  Warning: {message}[/bold yellow]")
+        from rich.markup import escape
+
+        self.console.print(f"[bold yellow]⚠️  Warning: {escape(message)}[/bold yellow]")
 
     def info(self, message: str):
         """
@@ -255,7 +259,9 @@ class ProgressReporter:
         Args:
             message: Info message
         """
-        self.console.print(f"[blue]ℹ️  {message}[/blue]")
+        from rich.markup import escape
+
+        self.console.print(f"[blue]ℹ️  {escape(message)}[/blue]")
 
     def success(self, message: str):
         """
@@ -264,4 +270,6 @@ class ProgressReporter:
         Args:
             message: Success message
         """
-        self.console.print(f"[bold green]✅ {message}[/bold green]")
+        from rich.markup import escape
+
+        self.console.print(f"[bold green]✅ {escape(message)}[/bold green]")

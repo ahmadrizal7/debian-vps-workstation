@@ -62,12 +62,12 @@ def test_complete_sudo_workflow(temp_dirs):
     assert "NOPASSWD" in content
 
     # Step 2: Test allowed command
-    result = sudo_mgr.test_command("testuser", "systemctl restart myapp")
+    result = sudo_mgr.test_command("testuser", "/usr/bin/systemctl restart myapp")
     assert result["allowed"] is True
     assert result["password_required"] is False
 
     # Step 3: Test denied command
-    result = sudo_mgr.test_command("testuser", "apt-get install nginx")
+    result = sudo_mgr.test_command("testuser", "/usr/bin/apt-get install nginx")
     assert result["allowed"] is False
 
     # Step 4: Get user policy
@@ -102,12 +102,12 @@ def test_role_upgrade_workflow(temp_dirs):
     sudo_mgr.apply_policy_for_user("johndoe", "developer")
 
     # Test developer command
-    result = sudo_mgr.test_command("johndoe", "systemctl restart myapp")
+    result = sudo_mgr.test_command("johndoe", "/usr/bin/systemctl restart myapp")
     assert result["allowed"] is True
     assert result["password_required"] is False
 
     # Test devops-only command (should fail)
-    result = sudo_mgr.test_command("johndoe", "apt-get update")
+    result = sudo_mgr.test_command("johndoe", "/usr/bin/apt-get update")
     assert result["allowed"] is False
 
     # Remove existing file before upgrade
@@ -120,7 +120,7 @@ def test_role_upgrade_workflow(temp_dirs):
     sudo_mgr.apply_policy_for_user("johndoe", "devops")
 
     # Test devops command (should now work)
-    result = sudo_mgr.test_command("johndoe", "apt-get update")
+    result = sudo_mgr.test_command("johndoe", "/usr/bin/apt-get update")
     assert result["allowed"] is True
     assert result["password_required"] is True  # Requires password
 
@@ -158,14 +158,14 @@ def test_multiple_users_different_policies(temp_dirs):
     assert (temp_dirs["sudoers_dir"] / "rbac-admin_user").exists()
 
     # Test developer permissions
-    result = sudo_mgr.test_command("dev_user", "systemctl restart myapp")
+    result = sudo_mgr.test_command("dev_user", "/usr/bin/systemctl restart myapp")
     assert result["allowed"] is True
 
-    result = sudo_mgr.test_command("dev_user", "apt-get install nginx")
+    result = sudo_mgr.test_command("dev_user", "/usr/bin/apt-get install nginx")
     assert result["allowed"] is False
 
     # Test admin permissions (can do anything)
-    result = sudo_mgr.test_command("admin_user", "apt-get install nginx")
+    result = sudo_mgr.test_command("admin_user", "/usr/bin/apt-get install nginx")
     assert result["allowed"] is True
 
 
@@ -227,12 +227,12 @@ def test_passwordless_vs_password_required(temp_dirs):
     sudo_mgr.apply_policy_for_user("devops_user", "devops")
 
     # Test passwordless command
-    result = sudo_mgr.test_command("devops_user", "docker ps")
+    result = sudo_mgr.test_command("devops_user", "/usr/bin/docker ps")
     assert result["allowed"] is True
     assert result["password_required"] is False
 
     # Test password-required command
-    result = sudo_mgr.test_command("devops_user", "systemctl restart nginx")
+    result = sudo_mgr.test_command("devops_user", "/usr/bin/systemctl restart nginx")
     assert result["allowed"] is True
     assert result["password_required"] is True
 
@@ -262,13 +262,13 @@ def test_wildcard_command_matching(temp_dirs):
 
     # Test various wildcard matches
     test_cases = [
-        ("docker logs myapp", True),
-        ("docker logs container-123", True),
-        ("docker logs anything-here", True),
-        ("systemctl status nginx", True),
-        ("systemctl status myapp", True),
-        ("journalctl -u myapp-web", True),
-        ("journalctl -u myapp-worker", True),
+        ("/usr/bin/docker logs myapp", True),
+        ("/usr/bin/docker logs container-123", True),
+        ("/usr/bin/docker logs anything-here", True),
+        ("/usr/bin/systemctl status nginx", True),
+        ("/usr/bin/systemctl status myapp", True),
+        ("/usr/bin/journalctl -u myapp-web", True),
+        ("/usr/bin/journalctl -u myapp-worker", True),
     ]
 
     for command, should_allow in test_cases:
@@ -291,7 +291,9 @@ def test_policy_validation_prevents_errors(temp_dirs):
     policy = SudoPolicy(
         name="test",
         rules=[
-            SudoCommandRule("systemctl restart myapp", password_required=PasswordRequirement.NONE),
+            SudoCommandRule(
+                "/usr/bin/systemctl restart myapp", password_required=PasswordRequirement.NONE
+            ),
         ],
     )
 

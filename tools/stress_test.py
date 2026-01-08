@@ -16,7 +16,16 @@ from configurator.utils.file_lock import file_lock
 
 
 # Check 3.1: Concurrent File Writes
-def stress_test_file_writes():
+def stress_test_file_writes() -> bool:
+    """
+    Stress test file writes using 50 concurrent threads.
+
+    Verifies that the `file_lock` mechanism prevents race conditions
+    and data corruption when multiple threads write to the same file.
+
+    Returns:
+        bool: True if test passed (file integrity maintained)
+    """
     print("Check 3.1: Concurrent File Writes (50 threads)")
     print("=" * 60)
 
@@ -79,7 +88,16 @@ class StressModule(ConfigurationModule):
         return True
 
 
-def stress_test_state_updates():
+def stress_test_state_updates() -> bool:
+    """
+    Stress test parallel state updates.
+
+    Executes 50 distinct modules in parallel (batches) using
+    `ParallelModuleExecutor` to ensure state tracking works under load.
+
+    Returns:
+        bool: True if all modules executed and stats were collected.
+    """
     print("\nCheck 3.2: Parallel State Updates")
     print("=" * 60)
 

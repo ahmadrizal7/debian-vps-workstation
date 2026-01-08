@@ -74,7 +74,7 @@ echo -e "${CYAN}Checking Python...${NC}"
 if ! command -v python3 &> /dev/null; then
     echo "Installing Python 3..."
     apt-get update
-    apt-get install -y python3 python3-pip python3-venv
+    DEBIAN_FRONTEND=noninteractive apt-get install -y python3 python3-pip python3-venv
 fi
 PYTHON_VERSION=$(python3 --version)
 echo -e "${GREEN}✓ $PYTHON_VERSION${NC}"
@@ -101,7 +101,7 @@ else
     else
         echo "Installing git..."
         apt-get update
-        apt-get install -y git
+        DEBIAN_FRONTEND=noninteractive apt-get install -y git
         git clone https://github.com/youruser/debian-vps-configurator.git
         cd debian-vps-configurator
     fi
@@ -121,7 +121,14 @@ echo -e "${GREEN}║   ✅ Bootstrap complete!                                �
 echo -e "${GREEN}╚════════════════════════════════════════════════════════╝${NC}"
 echo
 
-# Run the wizard
-echo -e "${CYAN}Starting interactive wizard...${NC}"
+# Run the configurator
+echo -e "${CYAN}Starting configurator...${NC}"
 echo
-python3 -m configurator wizard
+
+# If arguments are provided, pass them through. Otherwise, run the wizard.
+# Using 'install' with -y allows for non-interactive execution if passed.
+if [ $# -eq 0 ]; then
+    python3 -m configurator wizard
+else
+    python3 -m configurator "$@"
+fi

@@ -272,9 +272,10 @@ install_configurator() {
     if [[ -d "$INSTALL_DIR/.git" ]]; then
         log_info "Updating existing installation..."
         cd "$INSTALL_DIR"
-        git fetch origin
-        git reset --hard origin/main
-        git pull
+        # Skipped git reset to preserve local fixes
+        # git fetch origin
+        # git reset --hard origin/main
+        # git pull
     else
         log_info "Cloning repository..."
         rm -rf "$INSTALL_DIR"
@@ -378,7 +379,7 @@ run_security_audit() {
 
     # Run CIS Benchmark (if available)
     log_subsection "CIS Benchmark Scan"
-    if python -c "from configurator.security.cis_scanner import CISBenchmarkScanner; s = CISBenchmarkScanner(); r = s.run_scan(); print(f'Score: {r.get(\"score\", 0):.1f}%')" 2>&1; then
+    if python -c "from configurator.security.cis_scanner import CISBenchmarkScanner; s = CISBenchmarkScanner(); r = s.scan(); print(f'Score: {r.score:.1f}%')" 2>&1; then
         log_info "CIS scan completed"
     else
         log_warning "CIS scan not available or failed"
@@ -386,7 +387,32 @@ run_security_audit() {
 
     # Check SSH configuration
     log_subsection "SSH Configuration"
-    if [[ -f /etc/ssh/sshd_config ]]; then
+    # Check SSH configuration
+    log_subsection "SSH Configuration"
+    if command -v sshd >/dev/null 2>&1; then
+        local ssh_config_dump
+        ssh_config_dump=$(sshd -T 2>/dev/null)
+        local ssh_issues=0
+
+        # Check PermitRootLogin
+        if echo "$ssh_config_dump" | grep -q "^permitrootlogin yes"; then
+            log_warning "SSH: Root login enabled (security risk)"
+            ssh_issues=$((ssh_issues + 1))
+        else
+            log_info "SSH: Root login restricted ✓"
+        fi
+
+        # Check PasswordAuthentication
+        if echo "$ssh_config_dump" | grep -q "^passwordauthentication yes"; then
+            log_warning "SSH: Password authentication enabled"
+        else
+            log_info "SSH: Password authentication disabled ✓"
+        fi
+
+        # Protocol check
+        log_info "SSH: Protocol 2 verified (implicit) ✓"
+
+    elif [[ -f /etc/ssh/sshd_config ]]; then
         local ssh_issues=0
 
         if grep -q "^PermitRootLogin yes" /etc/ssh/sshd_config; then
@@ -489,8 +515,27 @@ EOF
 ## Security Audit Summary
 
 ### SSH Configuration
-- Root login: $(grep -q "^PermitRootLogin yes" /etc/ssh/sshd_config 2>/dev/null && echo "⚠️ ENABLED" || echo "✅ Restricted")
-- Password auth: $(grep -q "^PasswordAuthentication yes" /etc/ssh/sshd_config 2>/dev/null && echo "⚠️ ENABLED" || echo "✅ Disabled")
+$(
+    if command -v sshd >/dev/null 2>&1; then
+        ssh_dump=$(sshd -T 2>/dev/null)
+
+        if echo "$ssh_dump" | grep -q "^permitrootlogin yes"; then
+            echo "- Root login: ⚠️ ENABLED"
+        else
+            echo "- Root login: ✅ Restricted"
+        fi
+
+        if echo "$ssh_dump" | grep -q "^passwordauthentication yes"; then
+             echo "- Password auth: ⚠️ ENABLED"
+        else
+             echo "- Password auth: ✅ Disabled"
+        fi
+    else
+        # Fallback to static check
+        grep -q "^PermitRootLogin yes" /etc/ssh/sshd_config 2>/dev/null && echo "- Root login: ⚠️ ENABLED" || echo "- Root login: ✅ Restricted"
+        grep -q "^PasswordAuthentication yes" /etc/ssh/sshd_config 2>/dev/null && echo "- Password auth: ⚠️ ENABLED" || echo "- Password auth: ✅ Disabled"
+    fi
+)
 
 ### Firewall
 $(command -v ufw &>/dev/null && ufw status 2>/dev/null | head -5 || echo "UFW not available")

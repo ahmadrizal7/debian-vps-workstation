@@ -77,7 +77,7 @@ class NodeJSModule(ConfigurationModule):
         checks_passed = True
 
         # Source nvm in verification commands
-        nvm_source = "source ~/.nvm/nvm.sh && "
+        nvm_source = 'export NVM_DIR="$HOME/.nvm" && . "$NVM_DIR/nvm.sh" && '
 
         # Check nvm
         nvm_dir = os.path.expanduser("~/.nvm")
@@ -173,7 +173,7 @@ nvm alias default {node_version}
         """Install yarn and pnpm package managers."""
         package_managers = self.get_config("package_managers", ["npm", "yarn", "pnpm"])
 
-        nvm_source = "source ~/.nvm/nvm.sh && "
+        nvm_source = 'export NVM_DIR="$HOME/.nvm" && . "$NVM_DIR/nvm.sh" && '
 
         for pm in package_managers:
             if pm == "npm":
@@ -206,7 +206,7 @@ nvm alias default {node_version}
 
         self.logger.info("Installing global packages...")
 
-        nvm_source = "source ~/.nvm/nvm.sh && "
+        nvm_source = 'export NVM_DIR="$HOME/.nvm" && . "$NVM_DIR/nvm.sh" && '
         packages_str = " ".join(global_packages)
 
         result = self.run(

@@ -221,16 +221,16 @@ def test_circuit_breaker():
 
         # Check for retry/resilience patterns in installer
         try:
-            from configurator.core.installer import PackageInstaller
+            from configurator.core.installer import Installer
 
-            installer = PackageInstaller(dry_run=True)
+            installer = Installer(dry_run=True)
 
             # Check if it has resilience features
             has_retry = hasattr(installer, "retry") or hasattr(installer, "max_retries")
             has_resilience = hasattr(installer, "circuit_breaker") or has_retry
 
             if has_resilience:
-                print("  ✅ Resilience pattern found in PackageInstaller")
+                print("  ✅ Resilience pattern found in Installer")
                 results["passed"] += 1
                 results["tests"].append(("Resilience Pattern", "PASS"))
             else:

@@ -236,13 +236,13 @@ def test_test_command_with_rbac(sudo_manager):
     sudo_manager.rbac_manager = mock_rbac
 
     # Test allowed command
-    result = sudo_manager.test_command("testuser", "systemctl restart myapp")
+    result = sudo_manager.test_command("testuser", "/usr/bin/systemctl restart myapp")
 
     assert result["allowed"] is True
     assert result["password_required"] is False
 
     # Test denied command
-    result = sudo_manager.test_command("testuser", "apt-get install nginx")
+    result = sudo_manager.test_command("testuser", "/usr/bin/apt-get install nginx")
 
     assert result["allowed"] is False
     assert "not in whitelist" in result["reason"]
@@ -252,7 +252,7 @@ def test_test_command_no_rbac(sudo_manager):
     """Test command testing without RBAC."""
     sudo_manager.rbac_manager = None
 
-    result = sudo_manager.test_command("testuser", "systemctl restart myapp")
+    result = sudo_manager.test_command("testuser", "/usr/bin/systemctl restart myapp")
 
     assert result["allowed"] is False
     assert "RBAC manager not available" in result["reason"]
@@ -309,13 +309,13 @@ def test_developer_policy_commands():
     dev_policy = manager.policies["developer"]
 
     # Should allow
-    assert dev_policy.find_matching_rule("systemctl restart myapp") is not None
-    assert dev_policy.find_matching_rule("systemctl status nginx") is not None
-    assert dev_policy.find_matching_rule("docker ps") is not None
-    assert dev_policy.find_matching_rule("docker logs myapp") is not None
+    assert dev_policy.find_matching_rule("/usr/bin/systemctl restart myapp") is not None
+    assert dev_policy.find_matching_rule("/usr/bin/systemctl status nginx") is not None
+    assert dev_policy.find_matching_rule("/usr/bin/docker ps") is not None
+    assert dev_policy.find_matching_rule("/usr/bin/docker logs myapp") is not None
 
     # Should not allow
-    assert dev_policy.find_matching_rule("apt-get install nginx") is None
+    assert dev_policy.find_matching_rule("/usr/bin/apt-get install nginx") is None
     assert dev_policy.find_matching_rule("iptables -A INPUT") is None
 
 
@@ -326,14 +326,14 @@ def test_devops_policy_commands():
     devops_policy = manager.policies["devops"]
 
     # Should allow (passwordless)
-    assert devops_policy.find_matching_rule("docker ps") is not None
+    assert devops_policy.find_matching_rule("/usr/bin/docker ps") is not None
 
     # Should allow (password required)
-    rule = devops_policy.find_matching_rule("systemctl restart nginx")
+    rule = devops_policy.find_matching_rule("/usr/bin/systemctl restart nginx")
     assert rule is not None
     assert rule.password_required == PasswordRequirement.REQUIRED
 
-    rule = devops_policy.find_matching_rule("apt-get upgrade")
+    rule = devops_policy.find_matching_rule("/usr/bin/apt-get upgrade")
     assert rule is not None
     assert rule.password_required == PasswordRequirement.REQUIRED
 

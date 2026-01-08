@@ -66,6 +66,9 @@ class SudoCommandRule:
 
     def matches_command(self, command: str) -> bool:
         """Check if command matches this rule's pattern."""
+        if self.command_pattern == "ALL":
+            return True
+
         pattern = self.command_pattern
 
         # Replace * with regex wildcard
@@ -208,43 +211,43 @@ class SudoPolicyManager:
         # Developer policy
         developer_rules = [
             SudoCommandRule(
-                command_pattern="systemctl restart myapp",
+                command_pattern="/usr/bin/systemctl restart myapp",
                 password_required=PasswordRequirement.NONE,
                 description="Restart application",
                 risk_level=CommandRisk.LOW,
             ),
             SudoCommandRule(
-                command_pattern="systemctl status *",
+                command_pattern="/usr/bin/systemctl status *",
                 password_required=PasswordRequirement.NONE,
                 description="Check service status",
                 risk_level=CommandRisk.LOW,
             ),
             SudoCommandRule(
-                command_pattern="systemctl reload myapp",
+                command_pattern="/usr/bin/systemctl reload myapp",
                 password_required=PasswordRequirement.NONE,
                 description="Reload application config",
                 risk_level=CommandRisk.LOW,
             ),
             SudoCommandRule(
-                command_pattern="journalctl -u myapp*",
+                command_pattern="/usr/bin/journalctl -u myapp*",
                 password_required=PasswordRequirement.NONE,
                 description="View application logs",
                 risk_level=CommandRisk.LOW,
             ),
             SudoCommandRule(
-                command_pattern="docker ps*",
+                command_pattern="/usr/bin/docker ps*",
                 password_required=PasswordRequirement.NONE,
                 description="List containers",
                 risk_level=CommandRisk.LOW,
             ),
             SudoCommandRule(
-                command_pattern="docker logs *",
+                command_pattern="/usr/bin/docker logs *",
                 password_required=PasswordRequirement.NONE,
                 description="View container logs",
                 risk_level=CommandRisk.LOW,
             ),
             SudoCommandRule(
-                command_pattern="docker inspect *",
+                command_pattern="/usr/bin/docker inspect *",
                 password_required=PasswordRequirement.NONE,
                 description="Inspect containers",
                 risk_level=CommandRisk.LOW,
@@ -260,37 +263,37 @@ class SudoPolicyManager:
         # DevOps policy (includes developer + more)
         devops_rules = developer_rules + [
             SudoCommandRule(
-                command_pattern="systemctl restart *",
+                command_pattern="/usr/bin/systemctl restart *",
                 password_required=PasswordRequirement.REQUIRED,
                 description="Restart any service",
                 risk_level=CommandRisk.MEDIUM,
             ),
             SudoCommandRule(
-                command_pattern="systemctl stop *",
+                command_pattern="/usr/bin/systemctl stop *",
                 password_required=PasswordRequirement.REQUIRED,
                 description="Stop any service",
                 risk_level=CommandRisk.MEDIUM,
             ),
             SudoCommandRule(
-                command_pattern="systemctl start *",
+                command_pattern="/usr/bin/systemctl start *",
                 password_required=PasswordRequirement.REQUIRED,
                 description="Start any service",
                 risk_level=CommandRisk.MEDIUM,
             ),
             SudoCommandRule(
-                command_pattern="docker *",
+                command_pattern="/usr/bin/docker *",
                 password_required=PasswordRequirement.NONE,
                 description="All docker commands",
                 risk_level=CommandRisk.MEDIUM,
             ),
             SudoCommandRule(
-                command_pattern="apt-get update",
+                command_pattern="/usr/bin/apt-get update",
                 password_required=PasswordRequirement.REQUIRED,
                 description="Update package lists",
                 risk_level=CommandRisk.LOW,
             ),
             SudoCommandRule(
-                command_pattern="apt-get upgrade",
+                command_pattern="/usr/bin/apt-get upgrade",
                 password_required=PasswordRequirement.REQUIRED,
                 mfa_required=MFARequirement.OPTIONAL,
                 description="Upgrade packages",
@@ -307,7 +310,7 @@ class SudoPolicyManager:
         # Admin policy (full sudo)
         admin_rules = [
             SudoCommandRule(
-                command_pattern="*",
+                command_pattern="ALL",
                 password_required=PasswordRequirement.REQUIRED,
                 mfa_required=MFARequirement.OPTIONAL,
                 description="Full sudo access",

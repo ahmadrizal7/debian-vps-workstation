@@ -295,32 +295,15 @@ def replace_in_file(
 
         new_content = content.replace(old, new)
 
-        # We assume write_file will lock again? No, file_lock is typically reentrant if same process/thread?
-        # NO. fcntl on same file from same process?
-        # lock file is separate file .lock
-        # If we nest locks on same file, it might deadlock or be a no-op?
-        # flock is valid per fd.
-        # But here we call write_file which calls file_lock.
-        # If replace_in_file acquires lock, then write_file tries to acquire SAME lock...
-        # It will wait forever if in another thread, but same thread?
-        # flock is associated with OPEN FILE DESCRIPTION.
-        # If we open .lock again, it's a new file description.
-        # Locking it again from same thread WILL BLOCK if using fcntl.LOCK_EX?
-        # Actually, POSIX locks: "If a process has a write lock, it can also have a read lock..."
-        # But wait, fcntl locks are per process?
-        # "flock() locks are associated with a file description... duplicated fds share lock..."
-        # "Process-oriented: if a process holding a lock on a file closes any fd for that file, the lock is released."
-        # If we open new fd, it might block.
-        # So we should call internal write logic or bypass lock in write_file.
-        # Refactoring write_file to have `_write_file_internal` and `write_file` wrapper is safer.
-        # OR just duplicate logic here.
-
-        # Backup existing file (manually to avoid nested lock in write_file)
+        # Backup existing file
         if backup:
-            backup_file(path)  # backup_file doesn't lock? It reads.
+            backup_file(path)
 
+        # Write content manually to avoid potential deadlocks with nested locks
+        # if we were to call write_file() which also acquires a lock.
         try:
             path.write_text(new_content, encoding="utf-8")
+            return True
             # Mode? Preserved?
             # write_text replaces file.
             return True
