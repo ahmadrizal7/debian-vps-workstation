@@ -79,6 +79,13 @@ class VSCodeModule(ConfigurationModule):
         """Add Microsoft package repository."""
         self.logger.info("Adding Microsoft repository...")
 
+        import os
+
+        # Cleanup potential conflicting file from previous configs
+        if os.path.exists("/etc/apt/sources.list.d/vscode.sources"):
+            self.logger.info("Removing conflicting vscode.sources file...")
+            os.remove("/etc/apt/sources.list.d/vscode.sources")
+
         # Download and install GPG key
         self.run(
             "wget -qO- https://packages.microsoft.com/keys/microsoft.asc | "

@@ -85,47 +85,33 @@ class PHPModule(ConfigurationModule):
         version = self.get_config("version", "8.2")
         extensions = self.get_config("extensions", self.PHP_EXTENSIONS)
 
-        # On Debian Testing/Unstable (like Trixie), hardcoded versions often break.
-        # Check if versioned package exists, but generic 'php' is usually safer there.
-        use_generic = False
-        result = self.run(f"apt-cache show php{version}", check=False)
+        # Strategy: Prefer generic 'php' packages on Debian 13 (Trixie)
+        # as they map to the correct stable version (e.g. 8.2 or 8.3).
+        # Hardcoding versions causes failures and trips the circuit breaker.
 
-        if not result.success:
-            use_generic = True
-
-        # If version check passed, we might still want generic if specific extensions are missing
-        # But let's trust the check for now, OR valid logic:
-        # If we are on Trixie (Debian 13), force generic 'php' metapackage which points to latest (8.2/8.3/8.4)
-
-        # Simpler logic: Try to install. If fails, try generic.
-        # But install_packages raises exception.
-
-        # Improved strategy: Just use generic packages for simplicity unless specific version requested
-        # But class has defaults.
-
-        if use_generic:
-            packages = ["php", "php-cli", "php-common"]
-            for ext in extensions:
-                packages.append(f"php-{ext}")
-        else:
-            # Just because php8.2 exists doesn't mean all extensions do (rare but possible)
-            # Let's fallback to generic if we are in a "rolling" distro mood, but
-            # standard logic:
-            packages = [f"php{version}"]
-            for ext in extensions:
-                packages.append(f"php{version}-{ext}")
+        # We will try generic first.
+        self.logger.info("Attempting installation with generic PHP packages...")
+        packages = ["php", "php-cli", "php-common"]
+        for ext in extensions:
+            packages.append(f"php-{ext}")
 
         try:
             self.install_packages(packages)
-        except Exception:
-            # If strict version failed, try fallback to generic
-            self.logger.warning(f"Failed to install php{version} packages, trying generic 'php'...")
-            packages = ["php", "php-cli", "php-common"]
-            for ext in extensions:
-                packages.append(f"php-{ext}")
-            self.install_packages(packages)
+            self.logger.info("✓ PHP installed (generic packages)")
+            return
+        except Exception as e:
+            self.logger.warning(f"Generic PHP installation failed: {e}")
+            # Reset breaker? We can't easily.
+            # But maybe specific version works?
+            # If generic failed, apt might be broken, but let's try specific as fallback.
 
-        self.logger.info("✓ PHP installed")
+        self.logger.info(f"Falling back to specific version php{version}...")
+        packages = [f"php{version}"]
+        for ext in extensions:
+            packages.append(f"php{version}-{ext}")
+
+        self.install_packages(packages)
+        self.logger.info(f"✓ PHP {version} installed")
 
     def _install_composer(self):
         """Install Composer package manager."""

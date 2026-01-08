@@ -98,7 +98,11 @@ class DockerModule(ConfigurationModule):
         """Add Docker's official GPG key and repository."""
         self.logger.info("Adding Docker repository...")
 
-        # Remove conflicting docker.sources if it exists (prevents duplicate target warnings)
+        # Remove conflicting docker.list if it exists (legacy)
+        if os.path.exists("/etc/apt/sources.list.d/docker.list"):
+            os.remove("/etc/apt/sources.list.d/docker.list")
+
+        # Remove conflicting docker.sources if it exists
         if os.path.exists("/etc/apt/sources.list.d/docker.sources"):
             os.remove("/etc/apt/sources.list.d/docker.sources")
 
@@ -126,13 +130,24 @@ class DockerModule(ConfigurationModule):
         )
         codename = result.stdout.strip() or "trixie"
 
-        # Add repository
-        repo_line = (
-            f"deb [arch={arch} signed-by=/etc/apt/keyrings/docker.asc] "
-            f"https://download.docker.com/linux/debian {codename} stable"
+        # Docker repo might not have trixie yet, allow fallback or force bookworm if needed
+        # For now, we'll use bookworm if it's trixie or sid, as they are often compatible
+        if codename in ["trixie", "sid"]:
+            self.logger.warning(
+                f"Docker repo might not support {codename}, using 'bookworm' instead."
+            )
+            codename = "bookworm"
+
+        # Use docker.sources (deb822 format) as per official docs
+        repo_content = (
+            "Types: deb\n"
+            "URIs: https://download.docker.com/linux/debian\n"
+            f"Suites: {codename}\n"
+            "Components: stable\n"
+            "Signed-By: /etc/apt/keyrings/docker.asc\n"
         )
 
-        write_file("/etc/apt/sources.list.d/docker.list", repo_line + "\n")
+        write_file("/etc/apt/sources.list.d/docker.sources", repo_content)
 
         # Update package lists
         self.run("apt-get update", check=True)
