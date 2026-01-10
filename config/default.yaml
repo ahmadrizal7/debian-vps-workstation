@@ -182,6 +182,145 @@ desktop:
   xrdp_port: 3389
   environment: xfce4
 
+  # === Phase 1: XRDP Performance Settings ===
+  xrdp:
+    max_bpp: 24 # Color depth (24 for balance, 32 for LAN-only, 16 for slow connections)
+    bitmap_cache: true # Client-side caching (huge performance win)
+    security_layer: "tls" # TLS preferred over RDP security
+    tcp_nodelay: true # Critical for responsiveness
+
+  # === Phase 2: XFCE Compositor Configuration ===
+  compositor:
+    # Modes: disabled | optimized | enabled
+    # - disabled: No compositing (recommended for remote, best performance)
+    # - optimized: Compositing with VSync off, no shadows (balanced)
+    # - enabled: Full compositing (LAN-only, smooth animations)
+    mode: "disabled"
+
+  # === Phase 2: Polkit Rules Configuration ===
+  polkit:
+    # Allow color management without password
+    allow_colord: true
+
+    # Allow package management without password
+    allow_packagekit: true
+
+  # === Phase 3: Visual Customization ===
+
+  # Theme Configuration
+  themes:
+    # Themes to install (list)
+    install:
+      - nordic # Dark, high contrast (recommended for RDP)
+      - arc # Lightweight, modern
+      # - whitesur  # macOS inspired (optional, slow install)
+      # - dracula   # Vibrant colors (optional)
+
+    # Active theme to apply
+    # Options: Nordic-darker, Arc-Dark, WhiteSur-Dark, Dracula
+    active: "Nordic-darker"
+
+  # Icon Pack Configuration
+  icons:
+    # Icon packs to install
+    install:
+      - papirus # Modern, colorful (recommended)
+      # - tela      # Rounded, modern (optional)
+      # - numix     # Flat, minimalist (optional)
+
+    # Active icon pack
+    # Options: Papirus-Dark, Tela-dark, Numix-Circle
+    active: "Papirus-Dark"
+
+  # Font Configuration
+  fonts:
+    # Default system font
+    default: "Roboto 10"
+
+    # Font packages are auto-installed:
+    # - Roboto (sans-serif, UI)
+    # - Fira Code (monospace, terminal)
+    # - Noto Sans (fallback, emoji)
+
+  # Panel Layout Configuration
+  panel:
+    # Layout style: macos | windows | default
+    # - macos: Top panel + Plank dock at bottom
+    # - windows: Bottom taskbar (Windows 11 style)
+    # - default: XFCE default layout (top panel only)
+    layout: "macos"
+
+    # Plank dock auto-start
+    enable_plank: true
+
+  # === Phase 4: Zsh Configuration ===
+  zsh:
+    # Enable Zsh installation and configuration
+    enabled: true
+
+    # Plugins to load in .zshrc
+    # Note: zsh-autosuggestions and zsh-syntax-highlighting are always installed
+    plugins:
+      - git # Git aliases and functions
+      - docker # Docker completions
+      - docker-compose # Docker Compose completions
+      - kubectl # Kubernetes completions
+      - sudo # ESC ESC to prepend sudo
+      - command-not-found # Suggest package for unknown commands
+      - colored-man-pages # Colored man pages
+      - zsh-autosuggestions # Fish-like autosuggestions
+      - zsh-syntax-highlighting # MUST BE LAST
+
+    # Terminal productivity tools
+    tools:
+      fzf: true # Fuzzy finder (Ctrl+R for history)
+      bat: true # Better cat with syntax highlighting
+      exa: true # Better ls with colors/icons
+      zoxide: true # Smarter cd that learns
+
+    # Set Zsh as default shell for users
+    set_default_shell: true
+
+  # === Phase 5: Advanced Terminal Tools ===
+  terminal_tools:
+    # Bat configuration
+    bat:
+      theme: "TwoDark" # TwoDark, Monokai Extended, Nord, etc.
+      line_numbers: true # Show line numbers
+      git_integration: true # Show git modifications
+
+    # Exa configuration
+    exa:
+      git_integration: true # Show git status per file
+      icons: true # Show file type icons
+      extended_attributes: false # Show extended attrs (Linux-specific)
+      time_style: "long-iso" # Date format:  long-iso, iso, relative
+      group_directories_first: true
+
+    # Zoxide configuration
+    zoxide:
+      interactive_mode: true # Enable 'zi' command
+      exclude_dirs:
+        - "/tmp"
+        - "/var/tmp"
+      max_results: 10
+
+    # FZF configuration
+    fzf:
+      preview: true # Show preview window
+      height: "40%"
+      layout: "reverse" # reverse | default
+      border: true
+      color_scheme: "dark" # dark | light
+
+    # Optional tools (may require manual installation)
+    optional:
+      ripgrep: true # Fast grep (rg)
+      fd: true # Fast find (fd)
+      delta: true # Better git diff
+      tokei: false # Code statistics
+      bottom: false # Better top (btm)
+
 # Programming Languages
 languages:
   python:
