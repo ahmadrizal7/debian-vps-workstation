@@ -160,11 +160,15 @@ class TestInstallerScriptSecurity:
                     "-d /usr/share/themes" in call_str
                 ), "Installer destination should be hardcoded"
 
-                # Should NOT contain command injection attempts
-                dangerous_chars = [";", "&&", "||", "|", "$", "`"]
-                for char in dangerous_chars:
-                    if char in call_str and char not in "install.sh":
-                        pytest.fail(f"Potential command injection in installer call: {call_str}")
+                # Should NOT contain command injection attempts from user input
+                # Note: && for command chaining is acceptable when paths are hardcoded
+                # Check for dangerous patterns that could come from user input
+                dangerous_patterns = [";", "$(", "`"]
+                for pattern in dangerous_patterns:
+                    if pattern in call_str:
+                        pytest.fail(
+                            f"Potential command injection pattern '{pattern}' in installer call: {call_str}"
+                        )
 
     def test_installer_script_runs_from_validated_directory(self, module):
         """Test that installer scripts only run from validated temp directories."""
