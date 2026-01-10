@@ -159,7 +159,10 @@ class DesktopModule(ConfigurationModule):
         # 14. Start services
         self._start_services()
 
-        self.logger.info("✓ Remote Desktop installed with full visual customization")
+        # === NEW: Phase 4 - Zsh Configuration ===
+        self._install_and_configure_zsh()
+
+        self.logger.info("✓ Remote Desktop install with complete Zsh environment configured")
         return True
 
     def verify(self) -> bool:
@@ -202,6 +205,10 @@ class DesktopModule(ConfigurationModule):
 
         # === Phase 3: Verify themes and icons ===
         if not self._verify_themes_and_icons():
+            checks_passed = False
+
+        # === Phase 4: Verify Zsh ===
+        if not self._verify_zsh_installation():
             checks_passed = False
 
         return checks_passed
@@ -1544,3 +1551,868 @@ exec /usr/bin/startxfce4
 
         self.logger.info("✓ xrdp services started")
         self.logger.info("  You can now connect via RDP on port 3389")
+
+    # === Phase 4: Zsh Configuration Methods ===
+
+    def _install_and_configure_zsh(self):
+        """
+        Install and configure Zsh shell with Oh My Zsh and Powerlevel10k. 
+        
+        Complete terminal transformation: 
+        - Zsh shell installation
+        - Oh My Zsh framework
+        - Powerlevel10k theme
+        - Essential plugins
+        - Custom aliases and functions
+        - Terminal emulator configuration
+        
+        Applied per-user for all regular users.
+        """
+        self.logger.info("Installing and configuring Zsh shell environment...")
+        
+        # Check if Zsh should be installed
+        if not self.get_config("desktop.zsh.enabled", True):
+            self.logger.info("Zsh installation disabled in config")
+            return
+
+        if self.dry_run:
+            if self.dry_run_manager: 
+                self.dry_run_manager.record_command("Install Zsh + Oh My Zsh + Powerlevel10k")
+            self.logger.info("[DRY-RUN] Would install and configure Zsh")
+            return
+        
+        # Install Zsh package
+        self._install_zsh_package()
+        
+        # Install Oh My Zsh for all users
+        self._install_oh_my_zsh()
+        
+        # Install Powerlevel10k theme
+        self._install_powerlevel10k()
+        
+        # Install Meslo Nerd Font
+        self._install_meslo_nerd_font()
+        
+        # Install essential plugins
+        self._install_zsh_plugins()
+        
+        # Install productivity tools
+        self._install_terminal_tools()
+        
+        # Configure .zshrc for all users
+        self._configure_zshrc()
+        
+        # Configure Powerlevel10k
+        self._configure_powerlevel10k()
+        
+        # Set Zsh as default shell
+        self._set_zsh_as_default_shell()
+
+        # Configure Terminal Emulator
+        self._configure_terminal_emulator()
+        
+        self.logger.info("✓ Zsh environment configured")
+
+    def _install_zsh_package(self):
+        """Install Zsh package from APT."""
+        self.logger.info("Installing Zsh package...")
+        
+        self.install_packages(["zsh"])
+        
+        # Verify installation
+        if not self.command_exists("zsh"):
+            raise ModuleExecutionError(
+                what="Zsh installation failed",
+                why="zsh command not found after apt install",
+                how="Check APT logs: /var/log/apt/term.log"
+            )
+        
+        # Get Zsh version
+        result = self.run("zsh --version", check=False, force_execute=True)
+        if result.success:
+            self.logger.info(f"✓ Zsh installed: {result.stdout.strip()}")
+        
+        self.logger.info("✓ Zsh package installed")
+
+    def _install_oh_my_zsh(self):
+        """
+        Install Oh My Zsh framework for all regular users.
+        
+        Oh My Zsh provides:
+        - Plugin management system
+        - Theme support
+        - Aliases and functions
+        - Auto-update mechanism
+        """
+        self.logger.info("Installing Oh My Zsh framework...")
+        
+        import pwd
+        
+        # Get regular users
+        users = [u.pw_name for u in pwd.getpwall() if u.pw_uid >= 1000 and u.pw_uid < 65534]
+        
+        if not users:
+            self.logger.warning("No regular users found for Oh My Zsh installation")
+            return
+        
+        # Oh My Zsh installation script URL and Checksum (Pinned for security)
+        ohmyzsh_install_url = "https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh"
+        expected_sha256 = "ce0b7c94aa04d8c7a8137e45fe5c4744e3947871f785fd58117c480c1bf49352"
+        
+        # Download and verify script once
+        script_path = "/tmp/ohmyzsh_install.sh"
+        try:
+            self.logger.info("Downloading and verifying Oh My Zsh installer...")
+            self.run(f"curl -fsSL {ohmyzsh_install_url} -o {script_path}", check=True)
+            
+            # Verify checksum
+            result = self.run(f"sha256sum {script_path}", check=True)
+            if expected_sha256 not in result.stdout:
+                raise SecurityError(f"Oh My Zsh installer checksum mismatch! Expected {expected_sha256}")
+            
+            self.logger.info("✓ Installer checksum verified")
+            self.run(f"chmod 644 {script_path}") # Ensure not executable by default, read-only
+            
+        except Exception as e:
+            self.logger.error(f"Failed to prepare Oh My Zsh installer: {e}")
+            self.run(f"rm -f {script_path}", check=False)
+            return
+
+        for user in users:
+            if not self._validate_user_safety(user):
+                continue
+            
+            try:
+                user_info = pwd.getpwnam(user)
+                user_home = user_info.pw_dir
+                
+                # Check if already installed
+                ohmyzsh_dir = os.path.join(user_home, ".oh-my-zsh")
+                if os.path.exists(ohmyzsh_dir):
+                    self.logger.info(f"Oh My Zsh already installed for user: {user}")
+                    continue
+                
+                # Execute verified script
+                # Use unattended mode to skip prompts
+                # Copy script to user temp or read from /tmp
+                install_cmd = (
+                    f"sudo -u {shlex.quote(user)} sh {script_path} --unattended"
+                )
+                
+                result = self.run(install_cmd, check=False)
+                
+                if result.success:
+                    self.logger.info(f"✓ Oh My Zsh installed for user: {user}")
+                    
+                    # Register rollback
+                    self.rollback_manager.add_command(
+                        f"rm -rf {shlex.quote(ohmyzsh_dir)}",
+                        description=f"Remove Oh My Zsh for {user}"
+                    )
+                else:
+                    self.logger.error(f"Failed to install Oh My Zsh for user {user}: {result.stderr}")
+                    
+            except Exception as e:
+                self.logger.error(f"Failed to install Oh My Zsh for user {user}: {e}")
+                continue
+        
+        # Cleanup
+        self.run(f"rm -f {script_path}", check=False)
+        self.logger.info("✓ Oh My Zsh framework installed")
+
+    def _install_powerlevel10k(self):
+        """
+        Install Powerlevel10k theme for Oh My Zsh.
+        
+        Powerlevel10k features:
+        - Ultra-fast prompt rendering
+        - Instant prompt (terminal ready in <1ms)
+        - Rich information display
+        - Configuration wizard
+        """
+        self.logger.info("Installing Powerlevel10k theme...")
+        
+        import pwd
+        
+        users = [u.pw_name for u in pwd.getpwall() if u.pw_uid >= 1000 and u.pw_uid < 65534]
+        
+        p10k_repo = "https://github.com/romkatv/powerlevel10k.git"
+        
+        for user in users:
+            if not self._validate_user_safety(user):
+                continue
+            
+            try:
+                user_info = pwd.getpwnam(user)
+                user_home = user_info.pw_dir
+                
+                # Powerlevel10k installation directory
+                ohmyzsh_custom = os.path.join(user_home, ".oh-my-zsh", "custom", "themes", "powerlevel10k")
+                
+                # Check if already installed
+                if os.path.exists(ohmyzsh_custom):
+                    self.logger.info(f"Powerlevel10k already installed for user: {user}")
+                    continue
+                
+                # Clone Powerlevel10k repository
+                clone_cmd = (
+                    f"sudo -u {shlex.quote(user)} "
+                    f"git clone --depth=1 {p10k_repo} {shlex.quote(ohmyzsh_custom)}"
+                )
+                
+                result = self.run(clone_cmd, check=False)
+                
+                if result.success:
+                    self.logger.info(f"✓ Powerlevel10k installed for user: {user}")
+                    
+                    # Register rollback
+                    self.rollback_manager.add_command(
+                        f"rm -rf {shlex.quote(ohmyzsh_custom)}",
+                        description=f"Remove Powerlevel10k for {user}"
+                    )
+                else:
+                    self.logger.error(f"Failed to install Powerlevel10k for user {user}")
+                    
+            except Exception as e:
+                self.logger.error(f"Failed to install Powerlevel10k for user {user}: {e}")
+                continue
+        
+        self.logger.info("✓ Powerlevel10k theme installed")
+
+    def _install_meslo_nerd_font(self):
+        """
+        Install Meslo Nerd Font required for Powerlevel10k icons.
+        
+        MesloLGS NF is the recommended font for Powerlevel10k.
+        Includes all necessary glyphs and icons.
+        """
+        self.logger.info("Installing Meslo Nerd Font...")
+        
+        import pwd
+        
+        users = [u.pw_name for u in pwd.getpwall() if u.pw_uid >= 1000 and u.pw_uid < 65534]
+        
+        # Font URLs (from Powerlevel10k repo)
+        font_base_url = "https://github.com/romkatv/powerlevel10k-media/raw/master"
+        fonts = [
+            "MesloLGS%20NF%20Regular.ttf",
+            "MesloLGS%20NF%20Bold.ttf",
+            "MesloLGS%20NF%20Italic.ttf",
+            "MesloLGS%20NF%20Bold%20Italic.ttf"
+        ]
+        
+        for user in users:
+            if not self._validate_user_safety(user):
+                continue
+            
+            try:
+                user_info = pwd.getpwnam(user)
+                user_home = user_info.pw_dir
+                
+                # Font directory
+                font_dir = os.path.join(user_home, ".local", "share", "fonts")
+                
+                # Create font directory
+                self.run(f"sudo -u {shlex.quote(user)} mkdir -p {shlex.quote(font_dir)}")
+                
+                # Download fonts
+                for font in fonts:
+                    font_url = f"{font_base_url}/{font}"
+                    font_file = font.replace("%20", " ")
+                    font_path = os.path.join(font_dir, font_file)
+                    
+                    # Download if not exists
+                    if not os.path.exists(font_path):
+                        download_cmd = (
+                            f"sudo -u {shlex.quote(user)} "
+                            f"wget -q -O {shlex.quote(font_path)} {font_url}"
+                        )
+                        
+                        self.run(download_cmd, check=False)
+                
+                # Rebuild font cache
+                self.run(f"sudo -u {shlex.quote(user)} fc-cache -fv", check=False)
+                
+                self.logger.info(f"✓ Meslo Nerd Font installed for user: {user}")
+                
+            except Exception as e:
+                self.logger.error(f"Failed to install font for user {user}: {e}")
+                continue
+        
+        self.logger.info("✓ Meslo Nerd Font installed")
+
+    def _install_zsh_plugins(self):
+        """
+        Install essential Zsh plugins for productivity.
+        
+        Plugins installed:
+        - zsh-autosuggestions: Fish-like autosuggestions
+        - zsh-syntax-highlighting: Real-time syntax validation
+        """
+        self.logger.info("Installing Zsh plugins...")
+        
+        import pwd
+        
+        users = [u.pw_name for u in pwd.getpwall() if u.pw_uid >= 1000 and u.pw_uid < 65534]
+        
+        plugins = {
+            "zsh-autosuggestions": "https://github.com/zsh-users/zsh-autosuggestions.git",
+            "zsh-syntax-highlighting": "https://github.com/zsh-users/zsh-syntax-highlighting.git"
+        }
+        
+        for user in users: 
+            if not self._validate_user_safety(user):
+                continue
+            
+            try: 
+                user_info = pwd.getpwnam(user)
+                user_home = user_info.pw_dir
+                
+                plugins_dir = os.path.join(user_home, ".oh-my-zsh", "custom", "plugins")
+                
+                for plugin_name, plugin_repo in plugins.items():
+                    plugin_path = os.path.join(plugins_dir, plugin_name)
+                    
+                    # Check if already installed
+                    if os.path.exists(plugin_path):
+                        self.logger.info(f"{plugin_name} already installed for user: {user}")
+                        continue
+                    
+                    # Clone plugin repository
+                    clone_cmd = (
+                        f"sudo -u {shlex.quote(user)} "
+                        f"git clone --depth=1 {plugin_repo} {shlex.quote(plugin_path)}"
+                    )
+                    
+                    result = self.run(clone_cmd, check=False)
+                    
+                    if result.success:
+                        self.logger.info(f"✓ {plugin_name} installed for user: {user}")
+                    else:
+                        self.logger.error(f"Failed to install {plugin_name} for user {user}")
+                
+            except Exception as e: 
+                self.logger.error(f"Failed to install plugins for user {user}: {e}")
+                continue
+        
+        self.logger.info("✓ Zsh plugins installed")
+
+    def _install_terminal_tools(self):
+        """
+        Install modern terminal productivity tools.
+        
+        Tools installed:
+        - fzf: Fuzzy finder for history, files, directories
+        - bat: Better 'cat' with syntax highlighting
+        - exa: Better 'ls' with colors and icons
+        - zoxide: Smarter 'cd' that learns your habits
+        """
+        self.logger.info("Installing terminal productivity tools...")
+        
+        # Get tool configuration
+        tools_config = self.get_config("desktop.zsh.tools", {})
+        
+        # Install from APT
+        apt_tools = []
+        
+        if tools_config.get("fzf", True):
+            apt_tools.append("fzf")
+        
+        if tools_config.get("bat", True):
+            apt_tools.append("bat")
+        
+        if tools_config.get("exa", True):
+            apt_tools.append("exa")
+        
+        if tools_config.get("zoxide", True):
+            apt_tools.append("zoxide")
+        
+        if apt_tools:
+            self.install_packages(apt_tools)
+            self.logger.info(f"✓ Terminal tools installed: {', '.join(apt_tools)}")
+        
+        self.logger.info("✓ Terminal productivity tools configured")
+
+    def _configure_zshrc(self):
+        """
+        Configure .zshrc file for all users with optimized settings.
+        
+        Configuration includes:
+        - Oh My Zsh initialization
+        - Powerlevel10k theme
+        - Plugin loading
+        - Custom aliases
+        - History settings
+        - Environment variables
+        """
+        self.logger.info("Configuring .zshrc files...")
+        
+        import pwd
+        
+        users = [u.pw_name for u in pwd.getpwall() if u.pw_uid >= 1000 and u.pw_uid < 65534]
+        
+        for user in users:
+            if not self._validate_user_safety(user):
+                continue
+            
+            try:
+                user_info = pwd.getpwnam(user)
+                user_home = user_info.pw_dir
+                
+                zshrc_path = os.path.join(user_home, ".zshrc")
+                
+                # Generate .zshrc content
+                zshrc_content = self._generate_zshrc_content()
+                
+                # Backup existing .zshrc
+                if os.path.exists(zshrc_path):
+                    backup_file(zshrc_path)
+                
+                # Write .zshrc
+                self.run(
+                    f"sudo -u {shlex.quote(user)} tee {shlex.quote(zshrc_path)} > /dev/null",
+                    input=zshrc_content.encode(),
+                    check=True
+                )
+                
+                self.logger.info(f"✓ .zshrc configured for user: {user}")
+                
+                # Register rollback
+                self.rollback_manager.add_command(
+                    f"rm -f {shlex.quote(zshrc_path)}",
+                    description=f"Remove .zshrc for {user}"
+                )
+                
+            except Exception as e: 
+                self.logger.error(f"Failed to configure .zshrc for user {user}: {e}")
+                continue
+        
+        self.logger.info("✓ .zshrc files configured")
+
+    def _generate_zshrc_content(self) -> str:
+        """
+        Generate .zshrc configuration content.
+        
+        Returns:
+            Complete .zshrc file content as string
+        """
+        # Get plugin configuration
+        plugins_list = self.get_config("desktop.zsh.plugins", [
+            "git", "docker", "docker-compose", "kubectl", "sudo",
+            "command-not-found", "colored-man-pages",
+            "zsh-autosuggestions", "zsh-syntax-highlighting"
+        ])
+        
+        # Ensure zsh-syntax-highlighting is LAST
+        if "zsh-syntax-highlighting" in plugins_list:
+            plugins_list.remove("zsh-syntax-highlighting")
+            plugins_list.append("zsh-syntax-highlighting")
+        
+        plugins_str = "\\n    ".join(plugins_list)
+        
+        zshrc_content = f'''# Zsh Configuration
+# Generated by debian-vps-workstation configurator
+
+# Path to Oh My Zsh installation
+export ZSH="$HOME/.oh-my-zsh"
+
+# === Powerlevel10k Instant Prompt ===
+# Enable instant prompt (ultra-fast terminal startup)
+if [[ -r "${{XDG_CACHE_HOME:-$HOME/.cache}}/p10k-instant-prompt-${{(%):-%n}}.zsh" ]]; then
+  source "${{XDG_CACHE_HOME:-$HOME/.cache}}/p10k-instant-prompt-${{(%):-%n}}.zsh"
+fi
+
+# === Theme Configuration ===
+ZSH_THEME="powerlevel10k/powerlevel10k"
+
+# === Plugin Configuration ===
+plugins=(
+    {plugins_str}
+)
+
+# Source Oh My Zsh
+source $ZSH/oh-my-zsh.sh
+
+# === User Configuration ===
+
+# Editor
+export EDITOR='vim'
+export VISUAL='vim'
+
+# Terminal
+export TERM=xterm-256color
+
+# === History Configuration ===
+HISTSIZE=50000
+SAVEHIST=50000
+setopt HIST_IGNORE_ALL_DUPS  # Don't record duplicates
+setopt HIST_FIND_NO_DUPS     # Don't show duplicates in search
+setopt SHARE_HISTORY         # Share history across all sessions
+setopt HIST_REDUCE_BLANKS    # Remove extra blanks
+setopt INC_APPEND_HISTORY    # Add commands immediately
+
+# === Aliases ===
+
+# Modern tool replacements
+alias cat='batcat --paging=never 2>/dev/null || cat'
+alias ls='exa --icons 2>/dev/null || ls --color=auto'
+alias ll='exa -lah --icons 2>/dev/null || ls -lah'
+alias tree='exa --tree --icons 2>/dev/null || tree'
+
+# Navigation
+alias ..='cd ..'
+alias ...='cd ../..'
+alias ....='cd ../../..'
+alias .....='cd ../../../..'
+
+# System info
+alias df='df -h'
+alias du='du -h'
+alias free='free -h'
+
+# Git shortcuts
+alias gs='git status'
+alias ga='git add'
+alias gc='git commit'
+alias gd='git diff'
+alias gp='git push'
+alias gl='git log --oneline --graph --decorate --all'
+alias gco='git checkout'
+alias gb='git branch'
+
+# Docker shortcuts
+alias dps='docker ps'
+alias dpa='docker ps -a'
+alias di='docker images'
+alias dex='docker exec -it'
+alias dlog='docker logs -f'
+alias dstop='docker stop $(docker ps -q)'
+alias drm='docker rm $(docker ps -aq)'
+
+# System management
+alias update='sudo apt update && sudo apt upgrade -y'
+alias install='sudo apt install'
+alias search='apt search'
+
+# Network
+alias myip='curl -s ifconfig.me'
+alias ports='netstat -tulanp'
+alias listening='ss -tulnp'
+
+# Process management
+alias psg='ps aux | grep -v grep | grep -i -e VSZ -e'
+alias topcpu='ps aux --sort=-%cpu | head -11'
+alias topmem='ps aux --sort=-%mem | head -11'
+
+# Safety
+alias rm='rm -i'
+alias cp='cp -i'
+alias mv='mv -i'
+alias ln='ln -i'
+
+# Quick edits
+alias zshconfig='vim ~/.zshrc'
+alias ohmyzsh='vim ~/.oh-my-zsh'
+alias reload='source ~/.zshrc'
+
+# === FZF Configuration ===
+if command -v fzf &> /dev/null; then
+    export FZF_DEFAULT_OPTS='--height 40% --layout=reverse --border --preview "bat --color=always --style=numbers --line-range=:500 {{}}"'
+    
+    # FZF key bindings (if available)
+    if [ -f /usr/share/doc/fzf/examples/key-bindings.zsh ]; then
+        source /usr/share/doc/fzf/examples/key-bindings.zsh
+    fi
+    
+    # FZF completion (if available)
+    if [ -f /usr/share/doc/fzf/examples/completion.zsh ]; then
+        source /usr/share/doc/fzf/examples/completion.zsh
+    fi
+fi
+
+# === Zoxide Configuration ===
+if command -v zoxide &> /dev/null; then
+    eval "$(zoxide init zsh)"
+    alias cd='z'  # Replace cd with zoxide
+fi
+
+# === Autosuggestions Configuration ===
+ZSH_AUTOSUGGEST_HIGHLIGHT_STYLE='fg=240,italic'
+ZSH_AUTOSUGGEST_STRATEGY=(history completion)
+ZSH_AUTOSUGGEST_BUFFER_MAX_SIZE=20
+
+# === Colored Man Pages ===
+export LESS_TERMCAP_mb=$'\\e[1;32m'
+export LESS_TERMCAP_md=$'\\e[1;32m'
+export LESS_TERMCAP_me=$'\\e[0m'
+export LESS_TERMCAP_se=$'\\e[0m'
+export LESS_TERMCAP_so=$'\\e[01;33m'
+export LESS_TERMCAP_ue=$'\\e[0m'
+export LESS_TERMCAP_us=$'\\e[1;4;31m'
+
+# === Powerlevel10k Configuration ===
+# To customize prompt, run: p10k configure
+[[ ! -f ~/.p10k.zsh ]] || source ~/.p10k.zsh
+'''
+        
+        return zshrc_content
+
+    def _configure_powerlevel10k(self):
+        """
+        Configure Powerlevel10k with optimized defaults.
+        
+        Creates .p10k.zsh configuration file with professional settings.
+        Users can run 'p10k configure' to customize. 
+        """
+        self.logger.info("Configuring Powerlevel10k defaults...")
+        
+        import pwd
+        
+        users = [u.pw_name for u in pwd.getpwall() if u.pw_uid >= 1000 and u.pw_uid < 65534]
+        
+        for user in users:
+            if not self._validate_user_safety(user):
+                continue
+            
+            try:
+                user_info = pwd.getpwnam(user)
+                user_home = user_info.pw_dir
+                
+                p10k_config_path = os.path.join(user_home, ".p10k.zsh")
+                
+                # Skip if user already has custom configuration
+                if os.path.exists(p10k_config_path):
+                    self.logger.info(f"Powerlevel10k config exists for user: {user}, skipping")
+                    continue
+                
+                # Generate default P10k config
+                # Note: Full p10k config is ~3000 lines, we'll create a minimal starter
+                p10k_content = self._generate_p10k_starter_config()
+                
+                # Write configuration
+                self.run(
+                    f"sudo -u {shlex.quote(user)} tee {shlex.quote(p10k_config_path)} > /dev/null",
+                    input=p10k_content.encode(),
+                    check=True
+                )
+                
+                self.logger.info(f"✓ Powerlevel10k configured for user: {user}")
+                self.logger.info(f"  User can customize with: p10k configure")
+                
+            except Exception as e:
+                self.logger.error(f"Failed to configure Powerlevel10k for user {user}: {e}")
+                continue
+        
+        self.logger.info("✓ Powerlevel10k configured")
+
+    def _generate_p10k_starter_config(self) -> str:
+        """
+        Generate minimal Powerlevel10k configuration. 
+        
+        Users can run 'p10k configure' to generate full config.
+        This is a reasonable default that works immediately.
+        """
+        return '''# Powerlevel10k Starter Configuration
+# Run 'p10k configure' to customize
+
+# Temporarily change options
+'builtin' 'local' '-a' 'p10k_config_opts'
+[[ ! -o 'aliases'         ]] || p10k_config_opts+=('aliases')
+[[ ! -o 'sh_glob'         ]] || p10k_config_opts+=('sh_glob')
+[[ ! -o 'no_brace_expand' ]] || p10k_config_opts+=('no_brace_expand')
+'builtin' 'setopt' 'no_aliases' 'no_sh_glob' 'brace_expand'
+
+() {
+  emulate -L zsh -o extended_glob
+  
+  # Prompt style: lean (minimal, fast)
+  typeset -g POWERLEVEL9K_MODE=nerdfont-complete
+  typeset -g POWERLEVEL9K_PROMPT_ON_NEWLINE=true
+  typeset -g POWERLEVEL9K_RPROMPT_ON_NEWLINE=false
+  typeset -g POWERLEVEL9K_TRANSIENT_PROMPT=always
+  
+  # Prompt segments
+  typeset -g POWERLEVEL9K_LEFT_PROMPT_ELEMENTS=(
+    dir                     # current directory
+    vcs                     # git status
+    newline                 # \\n
+    prompt_char             # prompt symbol
+  )
+  
+  typeset -g POWERLEVEL9K_RIGHT_PROMPT_ELEMENTS=(
+    status                  # exit code of last command
+    command_execution_time  # duration of last command
+    background_jobs         # presence of background jobs
+    time                    # current time
+  )
+  
+  # Directory
+  typeset -g POWERLEVEL9K_DIR_FOREGROUND=blue
+  
+  # Git
+  typeset -g POWERLEVEL9K_VCS_FOREGROUND=green
+  
+  # Time
+  typeset -g POWERLEVEL9K_TIME_FOREGROUND=gray
+  typeset -g POWERLEVEL9K_TIME_FORMAT='%D{%H:%M}'
+  
+  # Instant prompt
+  typeset -g POWERLEVEL9K_INSTANT_PROMPT=verbose
+  
+  (( ! $+functions[p10k] )) || p10k reload
+}
+
+# Restore options
+(( ${#p10k_config_opts} )) && setopt ${p10k_config_opts[@]}
+'builtin' 'unset' 'p10k_config_opts'
+'''
+
+    def _set_zsh_as_default_shell(self):
+        """
+        Set Zsh as the default shell for all regular users.
+        
+        Uses chsh to change default shell to /usr/bin/zsh.
+        """
+        self.logger.info("Setting Zsh as default shell...")
+        
+        import pwd
+        
+        users = [u.pw_name for u in pwd.getpwall() if u.pw_uid >= 1000 and u.pw_uid < 65534]
+        
+        # Get Zsh path
+        zsh_path = "/usr/bin/zsh"
+        
+        if not os.path.exists(zsh_path):
+            self.logger.error("Zsh binary not found, cannot set as default shell")
+            return
+        
+        for user in users:
+            if not self._validate_user_safety(user):
+                continue
+            
+            try:
+                # Get current shell
+                user_info = pwd.getpwnam(user)
+                current_shell = user_info.pw_shell
+                
+                if current_shell == zsh_path:
+                    self.logger.info(f"Zsh already default shell for user: {user}")
+                    continue
+                
+                # Change shell
+                chsh_cmd = f"chsh -s {zsh_path} {shlex.quote(user)}"
+                result = self.run(chsh_cmd, check=False)
+                
+                if result.success:
+                    self.logger.info(f"✓ Zsh set as default shell for user: {user}")
+                    
+                    # Register rollback
+                    self.rollback_manager.add_command(
+                        f"chsh -s {current_shell} {shlex.quote(user)}",
+                        description=f"Restore original shell for {user}"
+                    )
+                else:
+                    self.logger.error(f"Failed to set Zsh as default for user {user}")
+                    
+            except Exception as e:
+                self.logger.error(f"Failed to change shell for user {user}: {e}")
+                continue
+        
+        self.logger.info("✓ Zsh configured as default shell")
+        self.logger.info("  Users need to logout/login for shell change to take effect")
+
+    def _configure_terminal_emulator(self):
+        """
+        Configure XFCE Terminal for optimal Zsh experience.
+        
+        Configuration: 
+        - Font: MesloLGS NF (Nerd Font for icons)
+        - Color scheme: Optimized for Powerlevel10k
+        - Scrollback: Increased buffer
+        """
+        self.logger.info("Configuring XFCE Terminal for Zsh...")
+        
+        import pwd
+        
+        users = [u.pw_name for u in pwd.getpwall() if u.pw_uid >= 1000 and u.pw_uid < 65534]
+        
+        for user in users:
+            if not self._validate_user_safety(user):
+                continue
+            
+            try:
+                # Configure terminal via xfconf-query
+                terminal_settings = [
+                    # Font configuration
+                    ("/font-name", "MesloLGS NF 11"),
+                    
+                    # Scrollback
+                    ("/scrolling-unlimited", "false"),
+                    ("/scrolling-lines", "10000"),
+                    
+                    # Cursor
+                    ("/cursor-shape", "TERMINAL_CURSOR_SHAPE_IBEAM"),
+                    ("/cursor-blinks", "true"),
+                    
+                    # Colors (use terminal theme)
+                    ("/color-use-theme", "false"),
+                ]
+                
+                for property_path, value in terminal_settings: 
+                    cmd = f"sudo -u {shlex.quote(user)} xfconf-query -c xfce4-terminal -p {property_path}"
+                    
+                    # Determine type
+                    if value in ["true", "false"]: 
+                        cmd += f" -t bool -s {value}"
+                    elif value.isdigit():
+                        cmd += f" -t int -s {value}"
+                    else:
+                        cmd += f" -s '{value}'"
+                    
+                    self.run(cmd, check=False)
+                
+                self.logger.info(f"✓ Terminal configured for user: {user}")
+                
+            except Exception as e:
+                self.logger.error(f"Failed to configure terminal for user {user}: {e}")
+                continue
+        
+        self.logger.info("✓ XFCE Terminal configured")
+
+    def _verify_zsh_installation(self) -> bool:
+        """Verify Zsh installation and configuration."""
+        checks_passed = True
+        
+        # Check Zsh installed
+        if not self.command_exists("zsh"):
+            self.logger.error("Zsh not installed!")
+            checks_passed = False
+        else:
+            self.logger.info("✓ Zsh installed")
+        
+        # Check Oh My Zsh for users
+        import pwd
+        users = [u.pw_name for u in pwd.getpwall() if u.pw_uid >= 1000 and u.pw_uid < 65534]
+        
+        for user in users:
+            try:
+                user_home = pwd.getpwnam(user).pw_dir
+                ohmyzsh_dir = os.path.join(user_home, ".oh-my-zsh")
+                
+                if os.path.exists(ohmyzsh_dir):
+                    self.logger.info(f"✓ Oh My Zsh installed for: {user}")
+                else:
+                    self.logger.warning(f"Oh My Zsh not found for: {user}")
+                    
+            except Exception as e:
+                self.logger.error(f"Failed to verify for user {user}: {e}")
+        
+        # Check terminal tools
+        tools = ["fzf", "bat", "exa", "zoxide"]
+        for tool in tools: 
+            if self.command_exists(tool):
+                self.logger.info(f"✓ {tool} installed")
+            else:
+                self.logger.warning(f"{tool} not found")
+        
+        return checks_passed

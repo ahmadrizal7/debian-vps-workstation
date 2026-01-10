@@ -253,6 +253,34 @@ desktop:
     # Plank dock auto-start
     enable_plank: true
 
+  # === Phase 4: Zsh Configuration ===
+  zsh:
+    # Enable Zsh installation and configuration
+    enabled: true
+
+    # Plugins to load in .zshrc
+    # Note: zsh-autosuggestions and zsh-syntax-highlighting are always installed
+    plugins:
+      - git # Git aliases and functions
+      - docker # Docker completions
+      - docker-compose # Docker Compose completions
+      - kubectl # Kubernetes completions
+      - sudo # ESC ESC to prepend sudo
+      - command-not-found # Suggest package for unknown commands
+      - colored-man-pages # Colored man pages
+      - zsh-autosuggestions # Fish-like autosuggestions
+      - zsh-syntax-highlighting # MUST BE LAST
+
+    # Terminal productivity tools
+    tools:
+      fzf: true # Fuzzy finder (Ctrl+R for history)
+      bat: true # Better cat with syntax highlighting
+      exa: true # Better ls with colors/icons
+      zoxide: true # Smarter cd that learns
+
+    # Set Zsh as default shell for users
+    set_default_shell: true
+
 # Programming Languages
 languages:
   python:

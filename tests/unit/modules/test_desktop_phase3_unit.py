@@ -16,19 +16,26 @@ class TestThemeInstallation:
     @pytest.fixture
     def module(self):
         config = {"desktop": {"themes": {"install": ["nordic", "arc"], "active": "Nordic-darker"}}}
-        return DesktopModule(
+        module = DesktopModule(
             config=config,
             logger=Mock(),
             rollback_manager=Mock(),
             dry_run_manager=Mock(),
         )
+        # Set dry_run to False to allow actual execution in tests
+        module.dry_run = False
+        return module
 
-    @patch.object(DesktopModule, "run")
     @patch.object(DesktopModule, "install_packages")
-    def test_install_themes_installs_dependencies(self, mock_install_pkg, mock_run, module):
+    @patch.object(DesktopModule, "run")
+    def test_install_themes_installs_dependencies(self, mock_run, mock_install_pkg, module):
         """Test that theme dependencies are installed first."""
         mock_run.return_value = Mock(success=True)
-        module._install_themes()
+
+        # Mock individual theme methods to prevent actual execution
+        with patch.object(module, "_install_nordic_theme"):
+            with patch.object(module, "_install_arc_theme"):
+                module._install_themes()
 
         # Verify dependencies installed
         mock_install_pkg.assert_called()
@@ -157,12 +164,14 @@ class TestIconPackInstallation:
     @pytest.fixture
     def module(self):
         config = {"desktop": {"icons": {"install": ["papirus", "tela"], "active": "Papirus-Dark"}}}
-        return DesktopModule(
+        module = DesktopModule(
             config=config,
             logger=Mock(),
             rollback_manager=Mock(),
             dry_run_manager=Mock(),
         )
+        module.dry_run = False
+        return module
 
     @patch.object(DesktopModule, "install_packages")
     def test_install_papirus_icons_uses_apt(self, mock_install_pkg, module):
@@ -205,12 +214,14 @@ class TestFontConfiguration:
     @pytest.fixture
     def module(self):
         config = {"desktop": {"fonts": {"default": "Roboto 10"}}}
-        return DesktopModule(
+        module = DesktopModule(
             config=config,
             logger=Mock(),
             rollback_manager=Mock(),
             dry_run_manager=Mock(),
         )
+        module.dry_run = False
+        return module
 
     @patch.object(DesktopModule, "install_packages")
     @patch.object(DesktopModule, "run")
@@ -219,9 +230,13 @@ class TestFontConfiguration:
         self, mock_write, mock_run, mock_install_pkg, module
     ):
         """Test that font packages are installed."""
+        mock_run.return_value = Mock(success=True)
         module._configure_fonts()
 
         # Verify font packages installed
+        assert mock_install_pkg.called, "install_packages should be called"
+
+        # Get all packages from all calls
         all_packages = []
         for call_obj in mock_install_pkg.call_args_list:
             all_packages.extend(call_obj[0][0])
@@ -237,9 +252,13 @@ class TestFontConfiguration:
         self, mock_write, mock_run, mock_install_pkg, module
     ):
         """Test that fontconfig XML is created."""
+        mock_run.return_value = Mock(success=True)
         module._configure_fonts()
 
-        # Verify write_file called for fontconfig
+        # Verify write_file was called
+        assert mock_write.called, "write_file should be called for fontconfig"
+
+        # Find fontconfig call
         fontconfig_calls = [
             c for c in mock_write.call_args_list if "/etc/fonts/local.conf" in str(c)
         ]
@@ -323,18 +342,23 @@ class TestPanelConfiguration:
     @pytest.fixture
     def module(self):
         config = {"desktop": {"panel": {"layout": "macos", "enable_plank": True}}}
-        return DesktopModule(
+        module = DesktopModule(
             config=config,
             logger=Mock(),
             rollback_manager=Mock(),
             dry_run_manager=Mock(),
         )
+        module.dry_run = False
+        return module
 
     @patch.object(DesktopModule, "install_packages")
     def test_configure_panel_installs_plank(self, mock_install_pkg, module):
         """Test that Plank dock is installed."""
         with patch.object(module, "_setup_plank_autostart"):
             module._configure_panel_layout()
+
+        # Verify install_packages was called
+        assert mock_install_pkg.called, "install_packages should be called"
 
         # Verify Plank installed
         all_packages = []
@@ -375,7 +399,9 @@ class TestThemeApplication:
                 "icons": {"active": "Papirus-Dark"},
             }
         }
-        return DesktopModule(config=config, logger=Mock(), dry_run_manager=Mock())
+        module = DesktopModule(config=config, logger=Mock(), dry_run_manager=Mock())
+        module.dry_run = False
+        return module
 
     @patch("configurator.modules.desktop.pwd")
     @patch.object(DesktopModule, "run")
