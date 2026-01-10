@@ -20,11 +20,13 @@ class TestCompositorConfiguration:
                 "polkit": {"allow_colord": True},
             }
         }
+        dry_run_manager = Mock()
+        dry_run_manager.is_enabled = False
         return DesktopModule(
             config=config,
             logger=Mock(),
             rollback_manager=Mock(),
-            dry_run_manager=Mock(),
+            dry_run_manager=dry_run_manager,
         )
 
     def test_generate_xfwm4_config_disabled_mode(self, module):

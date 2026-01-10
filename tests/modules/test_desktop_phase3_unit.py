@@ -71,7 +71,8 @@ class TestThemeInstallation:
         module._install_nordic_theme()
 
         # Verify mv command executed
-        mv_calls = [str(c) for c in mock_run.call_args_list if " mv " in str(c)]
+        # Match 'mv ' or check args directly
+        mv_calls = [str(c) for c in mock_run.call_args_list if "mv " in str(c)]
         assert len(mv_calls) > 0, "Theme not moved to install directory"
 
         # Verify destination is correct
@@ -131,7 +132,8 @@ class TestThemeInstallation:
         except Exception as e:
             pytest.fail(f"Should have fallback for script failure: {e}")
 
-    def test_install_themes_continues_on_individual_failure(self, module):
+    @patch.object(DesktopModule, "install_packages")
+    def test_install_themes_continues_on_individual_failure(self, mock_install_pkg, module):
         """Test that one theme failure doesn't abort all installations."""
         with patch.object(module, "_install_nordic_theme") as mock_nordic:
             with patch.object(module, "_install_arc_theme") as mock_arc:

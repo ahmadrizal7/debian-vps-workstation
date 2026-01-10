@@ -1,111 +1,97 @@
 #!/bin/bash
-# Comprehensive test runner for Phase 3
+# Phase 3: Visual Identity (Themes, Icons, Fonts) Test Runner
 
 set -e
 
 echo "╔══════════════════════════════════════════════════════════╗"
-echo "║  Phase 3: Theme & Visual Customization Tests             ║"
+echo "║  Phase 3: Visual Identity Test Suite                     ║"
 echo "╚══════════════════════════════════════════════════════════╝"
 echo ""
 
+# Colors
 RED='\033[0;31m'
 GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-NC='\033[0m'
+NC='\033[0m' # No Color
 
-TESTS_PASSED=0
-TOTAL_TESTS=0
+# Test results
+UNIT_TESTS_PASSED=0
+INTEGRATION_TESTS_PASSED=0
+SECURITY_TESTS_PASSED=0
+PERFORMANCE_TESTS_PASSED=0
 
-echo "🔐 Phase 1: Supply Chain Security Tests"
+# Change to script directory
+cd "$(dirname "$0")/.."
+
+echo "📋 Phase 3: Unit Tests"
 echo "─────────────────────────────────────────────────────────"
-if python -m pytest tests/security/test_phase3_supply_chain.py -v --tb=short; then
-    echo -e "${GREEN}✅ Supply chain security tests PASSED${NC}"
-    TESTS_PASSED=$((TESTS_PASSED + 1))
-else
-    echo -e "${RED}❌ CRITICAL: Supply chain tests FAILED${NC}"
-fi
-TOTAL_TESTS=$((TOTAL_TESTS + 1))
-echo ""
-
-echo "📋 Phase 2: Unit Tests"
-echo "─────────────────────────────────────────────────────────"
-if python -m pytest tests/unit/modules/test_desktop_phase3_unit.py -v \
-    --cov=configurator.modules.desktop \
-    --cov-append \
-    --cov-report=term-missing; then
+if python3 -m pytest tests/modules/test_desktop_phase3_unit.py -v; then
     echo -e "${GREEN}✅ Unit tests PASSED${NC}"
-    TESTS_PASSED=$((TESTS_PASSED + 1))
+    UNIT_TESTS_PASSED=1
 else
     echo -e "${RED}❌ Unit tests FAILED${NC}"
 fi
-TOTAL_TESTS=$((TOTAL_TESTS + 1))
+echo ""
+
+echo "📋 Phase 3: Security Tests (Supply Chain)"
+echo "─────────────────────────────────────────────────────────"
+if python3 -m pytest tests/security/test_phase3_supply_chain.py -v; then
+    echo -e "${GREEN}✅ Security tests PASSED${NC}"
+    SECURITY_TESTS_PASSED=1
+else
+    echo -e "${RED}❌ Security tests FAILED${NC}"
+fi
+echo ""
+
+echo "📋 Phase 3: Performance Tests"
+echo "─────────────────────────────────────────────────────────"
+if python3 -m pytest tests/performance/test_phase3_performance.py -v; then
+    echo -e "${GREEN}✅ Performance tests PASSED${NC}"
+    PERFORMANCE_TESTS_PASSED=1
+else
+    echo -e "${RED}❌ Performance tests FAILED${NC}"
+fi
 echo ""
 
 echo "📋 Phase 3: Integration Tests"
 echo "─────────────────────────────────────────────────────────"
-if python -m pytest tests/integration/test_desktop_phase3_integration.py -v; then
+if python3 -m pytest tests/integration/test_desktop_phase3_integration.py -v; then
     echo -e "${GREEN}✅ Integration tests PASSED${NC}"
-    TESTS_PASSED=$((TESTS_PASSED + 1))
+    INTEGRATION_TESTS_PASSED=1
 else
     echo -e "${RED}❌ Integration tests FAILED${NC}"
 fi
-TOTAL_TESTS=$((TOTAL_TESTS + 1))
 echo ""
 
-echo "📋 Phase 4: Performance Tests"
+echo "📋 Phase 3: Visual Quality Tests (Manual/Simulated)"
 echo "─────────────────────────────────────────────────────────"
-if python -m pytest tests/performance/test_phase3_performance.py -v; then
-    echo -e "${GREEN}✅ Performance tests PASSED${NC}"
-    TESTS_PASSED=$((TESTS_PASSED + 1))
+# Visual tests are often partially manual or check for existence of output artifacts
+if python3 -m pytest tests/visual/test_phase3_visual_quality.py -v; then
+    echo -e "${GREEN}✅ Visual quality tests PASSED${NC}"
 else
-    echo -e "${RED}❌ Performance tests FAILED${NC}"
+    echo -e "${RED}❌ Visual quality tests FAILED${NC}"
 fi
-TOTAL_TESTS=$((TOTAL_TESTS + 1))
 echo ""
 
-echo "🎨 Phase 5: Visual Quality Tests (Manual)"
-echo "─────────────────────────────────────────────────────────"
-echo -e "${YELLOW}⚠️  Visual tests require manual validation:${NC}"
-echo ""
-echo "   1. Deploy to test VM: ./scripts/deploy_test.sh"
-echo "   2. Run: vps-configurator install --profile beginner"
-echo "   3. Connect via RDP client"
-echo "   4. Complete visual checklist:"
-echo ""
-echo "   ${BLUE}Theme Appearance:${NC}"
-echo "      [ ] Window borders crisp"
-echo "      [ ] No transparency artifacts"
-echo "      [ ] Colors consistent"
-echo "      [ ] Dark theme applied"
-echo ""
-echo "   ${BLUE}Font Rendering:${NC}"
-echo "      [ ] Text sharp, not blurry"
-echo "      [ ] No color fringing"
-echo "      [ ] Small text readable"
-echo ""
-echo "   ${BLUE}Icons:${NC}"
-echo "      [ ] All icons present (no fallbacks)"
-echo "      [ ] Icons consistent size"
-echo "      [ ] Icons not pixelated"
-echo ""
-echo "   ${BLUE}Panel/Dock:${NC}"
-echo "      [ ] Panel at top (macOS layout)"
-echo "      [ ] Plank dock at bottom"
-echo "      [ ] No visual overlap"
-echo ""
-echo "   5. Document results in: tests/visual/RESULTS.md"
-echo ""
 
 echo "╔══════════════════════════════════════════════════════════╗"
 echo "║  Test Summary                                             ║"
 echo "╚══════════════════════════════════════════════════════════╝"
-echo "Automated Tests: $TESTS_PASSED/$TOTAL_TESTS passed"
+
+TOTAL_PASSED=$((UNIT_TESTS_PASSED + INTEGRATION_TESTS_PASSED + SECURITY_TESTS_PASSED + PERFORMANCE_TESTS_PASSED))
+TOTAL_TESTS=4
+
+echo "Automated Tests: $TOTAL_PASSED/$TOTAL_TESTS passed"
 echo ""
 
-if [ $TESTS_PASSED -eq $TOTAL_TESTS ]; then
+if [ $UNIT_TESTS_PASSED -eq 1 ]; then echo -e "  ${GREEN}✓${NC} Unit Tests"; else echo -e "  ${RED}✗${NC} Unit Tests"; fi
+if [ $SECURITY_TESTS_PASSED -eq 1 ]; then echo -e "  ${GREEN}✓${NC} Security Tests"; else echo -e "  ${RED}✗${NC} Security Tests"; fi
+if [ $PERFORMANCE_TESTS_PASSED -eq 1 ]; then echo -e "  ${GREEN}✓${NC} Performance Tests"; else echo -e "  ${RED}✗${NC} Performance Tests"; fi
+if [ $INTEGRATION_TESTS_PASSED -eq 1 ]; then echo -e "  ${GREEN}✓${NC} Integration Tests"; else echo -e "  ${RED}✗${NC} Integration Tests"; fi
+
+echo ""
+
+if [ $TOTAL_PASSED -eq $TOTAL_TESTS ]; then
     echo -e "${GREEN}🎉 All automated tests PASSED!${NC}"
-    echo "Next step: Complete manual visual validation"
     exit 0
 else
     echo -e "${RED}❌ Some tests FAILED${NC}"

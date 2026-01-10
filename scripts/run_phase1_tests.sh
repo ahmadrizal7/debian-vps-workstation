@@ -26,7 +26,7 @@ cd "$(dirname "$0")/.."
 
 echo "📋 Phase 1: Unit Tests"
 echo "─────────────────────────────────────────────────────────"
-if python3 -m pytest tests/unit/modules/test_desktop_xrdp_optimization.py -v \
+if python3 -m pytest tests/modules/test_desktop_xrdp_optimization.py -v \
     --cov=configurator.modules.desktop \
     --cov-report=term-missing \
     --cov-report=html:htmlcov/unit; then
@@ -59,7 +59,7 @@ echo ""
 
 echo "📋 Phase 4: Security Tests"
 echo "─────────────────────────────────────────────────────────"
-if python3 -m pytest tests/security/test_xrdp_security.py -v; then
+if python3 -m pytest tests/security/test_phase1_security.py -v; then
     echo -e "${GREEN}✅ Security tests PASSED${NC}"
     SECURITY_TESTS_PASSED=1
 else

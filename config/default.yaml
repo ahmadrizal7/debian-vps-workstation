@@ -281,6 +281,46 @@ desktop:
     # Set Zsh as default shell for users
     set_default_shell: true
 
+  # === Phase 5: Advanced Terminal Tools ===
+  terminal_tools:
+    # Bat configuration
+    bat:
+      theme: "TwoDark" # TwoDark, Monokai Extended, Nord, etc.
+      line_numbers: true # Show line numbers
+      git_integration: true # Show git modifications
+
+    # Exa configuration
+    exa:
+      git_integration: true # Show git status per file
+      icons: true # Show file type icons
+      extended_attributes: false # Show extended attrs (Linux-specific)
+      time_style: "long-iso" # Date format:  long-iso, iso, relative
+      group_directories_first: true
+
+    # Zoxide configuration
+    zoxide:
+      interactive_mode: true # Enable 'zi' command
+      exclude_dirs:
+        - "/tmp"
+        - "/var/tmp"
+      max_results: 10
+
+    # FZF configuration
+    fzf:
+      preview: true # Show preview window
+      height: "40%"
+      layout: "reverse" # reverse | default
+      border: true
+      color_scheme: "dark" # dark | light
+
+    # Optional tools (may require manual installation)
+    optional:
+      ripgrep: true # Fast grep (rg)
+      fd: true # Fast find (fd)
+      delta: true # Better git diff
+      tokei: false # Code statistics
+      bottom: false # Better top (btm)
+
 # Programming Languages
 languages:
   python:
