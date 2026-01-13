@@ -209,7 +209,7 @@ class FileIntegrityMonitor:
                 self.baseline[file_path] = state
                 logger.info(f"Added to baseline: {file_path}")
             else:
-                logger.warning(f"File not found, skipping: {file_path}")
+                logger.debug(f"File not found, skipping: {file_path}")
 
         self._save_baseline()
 
