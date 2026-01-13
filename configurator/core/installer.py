@@ -317,12 +317,17 @@ class Installer:
                         exc_info=True,
                     )
                     use_parallel = False
-                    results = {}  # Clear partial results to restart?
-                    # Ideally we resume or retry? For safety, simpler to fall back or fail?
-                    # Prompt says "Fallback to sequential on error" (implied for graph errors, maybe not mid-execution)
-                    # If execution failed mid-way, fallback might re-run modules.
-                    # Idempotency is key. Modules should be idempotent.
-                    self.logger.warning("Restarting with sequential execution...")
+
+                    # CORE-001 FIX: Preserve successful results instead of clearing
+                    successful_modules = [name for name, success in results.items() if success]
+                    if successful_modules:
+                        self.logger.info(
+                            f"Preserving {len(successful_modules)} successful module results"
+                        )
+                        self.logger.debug(f"Already completed: {', '.join(successful_modules)}")
+                    # Don't clear results - keep them for sequential fallback
+                    # results = {}  # ❌ REMOVED - was clearing successful results!
+                    self.logger.warning("Restarting remaining modules with sequential execution...")
 
             if not use_parallel:
                 # Sequential fallback
@@ -335,10 +340,10 @@ class Installer:
                         self.logger.warning(f"Module not found: {module_name}")
                         continue
 
+                    # CORE-001 FIX: Skip already-successful modules from parallel fallback
                     if module_name in results and results[module_name]:
-                        # Skip already successful modules if we falling back?
-                        # Or re-verify?
-                        pass
+                        self.logger.info(f"⏭️  Skipping already-completed module: {module_name}")
+                        continue
 
                     # Execute
                     success = self._execute_module(module_name, dry_run=dry_run)
@@ -378,12 +383,55 @@ class Installer:
             self.logger.exception("Unexpected error during installation")
             self.reporter.error(str(e))
 
-            # Offer rollback
+            # CORE-002 FIX: Add rollback confirmation in interactive mode
             if self.rollback_manager.actions and not dry_run:
                 self.hooks_manager.execute(HookType.ON_ERROR)
-                self.hooks_manager.execute(HookType.ON_ROLLBACK)
-                self.logger.info("Attempting rollback...")
-                self.rollback_manager.rollback()
+
+                # Check if interactive mode
+                is_interactive = self.config.get("interactive", True)
+                action_count = len(self.rollback_manager.actions)
+
+                if is_interactive:
+                    # Prompt user for confirmation before rollback
+                    import click
+
+                    self.logger.warning(f"\n{'='*60}")
+                    self.logger.warning(
+                        f"Installation failed. {action_count} rollback actions available."
+                    )
+                    self.logger.warning(f"{'='*60}")
+
+                    # Show rollback summary
+                    summary = self.rollback_manager.get_summary()
+                    self.logger.info(f"\nRollback preview:\n{summary}")
+
+                    # Ask for user confirmation
+                    should_rollback = click.confirm(
+                        "\n⚠️  Do you want to rollback changes?", default=False
+                    )
+
+                    if should_rollback:
+                        self.logger.info("User confirmed rollback. Proceeding...")
+                        self.hooks_manager.execute(HookType.ON_ROLLBACK)
+                        self.rollback_manager.rollback()
+                    else:
+                        self.logger.info("User declined rollback. Keeping partial changes.")
+                        self.logger.warning("Review logs and manually fix issues if needed.")
+                else:
+                    # Non-interactive mode: check config for auto-rollback
+                    auto_rollback = self.config.get("installation.auto_rollback_on_error", True)
+
+                    if auto_rollback:
+                        self.logger.info(
+                            f"Auto-rollback enabled. Rolling back {action_count} actions..."
+                        )
+                        self.hooks_manager.execute(HookType.ON_ROLLBACK)
+                        self.rollback_manager.rollback()
+                    else:
+                        self.logger.warning(
+                            f"Auto-rollback disabled. Keeping partial changes "
+                            f"({action_count} rollback actions available)."
+                        )
 
             return False
 

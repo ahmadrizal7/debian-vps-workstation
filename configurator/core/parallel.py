@@ -320,69 +320,105 @@ class ParallelModuleExecutor:
     ) -> bool:
         """
         Execute a batch of modules in parallel (thread-safe).
+
+        CORE-003 FIX: Improved stop flag handling to prevent race conditions
+        CORE-004 FIX: Explicit cleanup to prevent memory leaks
         """
         # Limit workers to batch size
         workers = min(self.max_workers, len(batch))
 
-        with ThreadPoolExecutor(max_workers=workers) as executor:
-            # Submit all modules
-            future_to_module = {
-                executor.submit(execution_handler, name, module_registry[name]): name
-                for name in batch
-            }
+        # CORE-004 FIX: Track for explicit cleanup
+        future_to_module = None
+        batch_size = len(batch)
 
-            # Wait for completion
-            batch_success = True
+        try:
+            with ThreadPoolExecutor(max_workers=workers) as executor:
+                # Submit all modules
+                future_to_module = {
+                    executor.submit(execution_handler, name, module_registry[name]): name
+                    for name in batch
+                }
 
-            for future in as_completed(future_to_module):
-                module_name = future_to_module[future]
+                # Wait for completion
+                batch_success = True
 
-                try:
-                    success = future.result()
+                for future in as_completed(future_to_module):
+                    module_name = future_to_module[future]
 
-                    with self.results_lock:
-                        self.results[module_name] = success
+                    try:
+                        success = future.result()
 
-                    if not success:
-                        batch_success = False
+                        with self.results_lock:
+                            self.results[module_name] = success
+
+                        if not success:
+                            # CORE-003 FIX: Set stop flag IMMEDIATELY before other operations
+                            self.should_stop.set()
+                            batch_success = False
+
+                            # Cancel remaining futures
+                            for f in future_to_module:
+                                if not f.done():
+                                    f.cancel()
+
+                            break
+
+                    except Exception as e:
+                        self.logger.error(
+                            f"Module '{module_name}' raised exception: {e}", exc_info=True
+                        )
+
+                        # CORE-003 FIX: Set stop flag IMMEDIATELY
                         self.should_stop.set()
+                        batch_success = False
 
-                        # Cancel remaining futures
+                        with self.results_lock:
+                            self.results[module_name] = False
+
+                        # Cancel remaining
                         for f in future_to_module:
                             if not f.done():
                                 f.cancel()
 
                         break
 
-                except Exception as e:
-                    self.logger.error(
-                        f"Module '{module_name}' raised exception: {e}", exc_info=True
+                return batch_success
+
+        finally:
+            # CORE-004 FIX: Explicit cleanup to prevent memory leak
+            if future_to_module is not None:
+                # Ensure all futures are done or cancelled
+                for f in future_to_module:
+                    if not f.done():
+                        f.cancel()
+                        try:
+                            f.result(timeout=0.1)  # Wait briefly for cancellation
+                        except Exception:
+                            pass  # Ignore cancellation exceptions
+
+                # Clear the dict to release references
+                future_to_module.clear()
+
+                # For large batches, trigger garbage collection
+                if batch_size > 5:
+                    import gc
+
+                    gc.collect()
+                    self.logger.debug(
+                        f"Batch cleanup complete. GC triggered for {batch_size} modules."
                     )
-                    batch_success = False
-
-                    with self.results_lock:
-                        self.results[module_name] = False
-
-                    self.should_stop.set()
-
-                    # Cancel remaining
-                    for f in future_to_module:
-                        if not f.done():
-                            f.cancel()
-
-                    break
-
-        return batch_success
 
     def _execute_module_internal(self, module_name: str, module: Any) -> bool:
         """
         Execute a single module (thread-safe wrapper).
+
+        CORE-003 FIX: Check stop flag BEFORE any work to prevent race condition
         """
-        # Check if we should stop
+        # CORE-003 FIX: Check stop flag FIRST - before any work
         if self.should_stop.is_set():
             self.logger.warning(
                 f"[{threading.current_thread().name}] "
-                f"Skipping {module_name} due to previous failure"
+                f"Skipping {module_name} - stop flag already set"
             )
             return False
 
@@ -393,6 +429,11 @@ class ParallelModuleExecutor:
             self.logger.info(f"[{thread_name}] Starting {module_name}")
 
             with self.results_lock:
+                # CORE-003 FIX: Double-check inside lock to prevent race condition
+                if self.should_stop.is_set():
+                    self.logger.warning(f"[{thread_name}] Stop flag set during lock acquisition")
+                    return False
+
                 self.start_times[module_name] = start_time
 
             # Validate

@@ -443,3 +443,8 @@ ssl_certificates:
 interactive: true
 verbose: false
 dry_run: false
+
+# Installation Behavior (CORE-002)
+installation:
+  # In non-interactive mode, automatically rollback on error
+  auto_rollback_on_error: true
