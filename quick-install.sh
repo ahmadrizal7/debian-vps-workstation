@@ -371,7 +371,6 @@ install_python_deps() {
     print_success "Python dependencies installed"
     create_checkpoint "python_deps_installed"
 }
-}
 
 # Verify installation
 verify_installation() {
