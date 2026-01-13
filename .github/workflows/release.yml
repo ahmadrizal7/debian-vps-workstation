@@ -3,105 +3,111 @@ name: Release
 on:
   push:
     tags:
-      - 'v*'
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version tag (e.g., v1.0.0)"
+        required: true
+        type: string
+
+env:
+  PYTHON_VERSION: "3.11"
 
 jobs:
   release:
-    name: Create Release
+    name: Build & Release
     runs-on: ubuntu-latest
-
     permissions:
       contents: write
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: ${{ env.PYTHON_VERSION }}
 
-      - name: Install build tools
+      - name: Install build dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install build
+          pip install build twine
 
       - name: Build package
         run: python -m build
 
-      - name: Create install script
+      - name: Check package
+        run: twine check dist/*
+
+      - name: Get version from tag
+        id: get_version
         run: |
-          cat > install.sh << 'EOF'
-          #!/bin/bash
-          set -e
-
-          echo "🚀 Debian VPS Workstation Configurator Installer"
-          echo "================================================"
-          echo
-
-          # Check if running as root
-          if [ "$EUID" -ne 0 ]; then
-            echo "Please run as root: sudo bash install.sh"
-            exit 1
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            echo "VERSION=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
+          else
+            echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
           fi
 
-          # Check Debian version
-          if ! grep -q "VERSION_ID=\"13\"" /etc/os-release 2>/dev/null; then
-            echo "⚠️  Warning: This installer is designed for Debian 13 (Trixie)"
-            echo "   Your system may not be compatible."
-            read -p "Continue anyway? (y/N) " -n 1 -r
-            echo
-            if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-              exit 1
-            fi
-          fi
-
-          # Install Python if needed
-          if ! command -v python3 &> /dev/null; then
-            echo "📦 Installing Python..."
-            apt-get update
-            apt-get install -y python3 python3-pip python3-venv
-          fi
-
-          # Create temp directory
-          TEMP_DIR=$(mktemp -d)
-          cd "$TEMP_DIR"
-
-          # Download latest release
-          echo "📥 Downloading configurator..."
-          RELEASE_URL="https://github.com/youruser/debian-vps-configurator/releases/latest/download/debian-vps-configurator.tar.gz"
-          curl -fsSL "$RELEASE_URL" -o configurator.tar.gz
-          tar xzf configurator.tar.gz
-          cd debian-vps-configurator
-
-          # Install
-          echo "📦 Installing..."
-          pip3 install -r requirements.txt
-          pip3 install -e .
-
-          # Run wizard
-          echo
-          echo "✅ Installation complete!"
-          echo
-          python3 -m configurator wizard
-          EOF
-          chmod +x install.sh
-
-      - name: Create tarball
+      - name: Create quick-install script bundle
         run: |
           mkdir -p release
-          tar czf release/debian-vps-configurator.tar.gz \
-            --transform 's,^,debian-vps-configurator/,' \
-            configurator/ config/ requirements.txt setup.py pyproject.toml README.md LICENSE
-          cp install.sh release/
-          cp dist/*.whl release/
+          cp quick-install.sh release/
+          cp -r config/ release/config/
+          tar -czvf release/debian-vps-configurator-${{ steps.get_version.outputs.VERSION }}.tar.gz \
+            -C release quick-install.sh config/
+
+      - name: Generate release notes
+        id: release_notes
+        run: |
+          cat << 'EOF' > release/RELEASE_NOTES.md
+          ## Debian VPS Configurator ${{ steps.get_version.outputs.VERSION }}
+
+          ### Installation
+
+          **Quick Install (recommended):**
+          ```bash
+          curl -sSL https://raw.githubusercontent.com/${{ github.repository }}/main/quick-install.sh | bash
+          ```
+
+          **Manual Install:**
+          ```bash
+          pip install debian-vps-configurator
+          ```
+
+          ### What's Included
+          - 🖥️ Remote Desktop (XRDP + XFCE4)
+          - 🛡️ Security Hardening (UFW, Fail2ban, SSH)
+          - 🐍 Python Development Environment
+          - 📦 Node.js Development Environment
+          - 🐹 Go Development Environment
+          - 🦀 Rust Development Environment
+          - ☕ Java Development Environment
+          - 🐘 PHP Development Environment
+          - 🐳 Docker & Docker Compose
+          - 📝 VS Code, Cursor, Neovim
+          - 🌐 WireGuard VPN
+          - 🔒 Caddy Web Server
+
+          ### Usage
+          ```bash
+          vps-configurator install --profile advanced -v
+          ```
+
+          See [README](https://github.com/${{ github.repository }}#readme) for full documentation.
+          EOF
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
+          name: ${{ steps.get_version.outputs.VERSION }}
+          body_path: release/RELEASE_NOTES.md
+          draft: false
+          prerelease: ${{ contains(steps.get_version.outputs.VERSION, 'alpha') || contains(steps.get_version.outputs.VERSION, 'beta') || contains(steps.get_version.outputs.VERSION, 'rc') }}
           files: |
-            release/*
             dist/*
-          generate_release_notes: true
+            release/debian-vps-configurator-${{ steps.get_version.outputs.VERSION }}.tar.gz
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
