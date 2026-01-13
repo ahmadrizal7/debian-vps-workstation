@@ -345,8 +345,9 @@ install_python_deps() {
 
     if [ "$ROOT_MODE" = true ]; then
         print_info "Installing system-wide (root mode)..."
-        print_info "Upgrading pip..."
-        pip3 install --upgrade pip setuptools wheel -q --break-system-packages
+        # Skip pip upgrade - system pip is managed by Debian
+        print_info "Installing setuptools and wheel..."
+        pip3 install setuptools wheel -q --break-system-packages 2>/dev/null || true
 
         print_info "Installing project dependencies..."
         pip3 install -r requirements.txt -q --break-system-packages
