@@ -236,11 +236,37 @@ class AlertManager:
         """Initialize alert manager."""
         self.logger = logger or logging.getLogger(__name__)
         self.channels: List[AlertChannel] = []
+        self.history: List[Alert] = []
         self.threshold_rules: Dict[str, Dict[str, Any]] = {}
 
     def add_channel(self, channel: AlertChannel):
         """Add alert channel."""
         self.channels.append(channel)
+
+    def get_recent_alerts(self, hours: int = 1) -> List[Alert]:
+        """
+        Get recent alerts from history.
+
+        Args:
+            hours: Number of hours to look back
+
+        Returns:
+            List of alerts
+        """
+        from datetime import datetime, timedelta
+
+        cutoff = datetime.now() - timedelta(hours=hours)
+        return [a for a in self.history if a.timestamp >= cutoff]
+
+    def check_thresholds(self, metrics: Dict[str, Any]):
+        """
+        Check multiple thresholds at once.
+
+        Args:
+            metrics: Dictionary of metric names and values
+        """
+        for name, value in metrics.items():
+            self.check_threshold(name, value)
 
     def add_threshold_rule(
         self,
@@ -316,6 +342,12 @@ class AlertManager:
             timestamp=datetime.now(),
             metadata=metadata,
         )
+
+        # Add to history
+        self.history.append(alert)
+        # Keep history reasonable size
+        if len(self.history) > 1000:
+            self.history = self.history[-1000:]
 
         # Log alert
         log_level = {

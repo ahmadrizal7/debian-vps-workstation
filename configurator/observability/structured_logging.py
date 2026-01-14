@@ -148,8 +148,10 @@ class LogAggregator:
     Can parse and analyze log files.
     """
 
-    def __init__(self, log_file: Path):
+    def __init__(self, log_file: Any):
         """Initialize log aggregator."""
+        if isinstance(log_file, str):
+            log_file = Path(log_file)
         self.log_file = log_file
 
     def get_logs(
@@ -194,6 +196,18 @@ class LogAggregator:
                     continue
 
         return logs
+
+    def get_logs_by_correlation_id(self, correlation_id: str) -> list[Dict[str, Any]]:
+        """
+        Get logs by correlation ID.
+
+        Args:
+            correlation_id: Correlation ID to filter by
+
+        Returns:
+            List of log dictionaries
+        """
+        return self.get_logs(correlation_id=correlation_id)
 
     def get_error_summary(self, hours: int = 24) -> Dict[str, int]:
         """

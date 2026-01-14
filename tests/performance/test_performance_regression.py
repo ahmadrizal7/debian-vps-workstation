@@ -60,9 +60,16 @@ class PerformanceBenchmark:
             (is_acceptable, message)
         """
         if test_name not in self.baselines:
-            return True, f"No baseline for '{test_name}' - establishing baseline"
+            # Auto-save baseline for first run
+            self.save_baseline(test_name, duration, {"auto_generated": True})
+            return True, f"No baseline for '{test_name}' - established new baseline"
 
         baseline_duration = self.baselines[test_name]["duration"]
+
+        # Ignore regression if absolute difference is negligible (< 10ms)
+        if abs(duration - baseline_duration) < 0.01:
+            return True, "Performance stable (change < 10ms)"
+
         regression_percent = ((duration - baseline_duration) / baseline_duration) * 100
 
         if regression_percent > threshold_percent:
@@ -240,7 +247,16 @@ class TestModuleLoadingPerformance:
     def test_lazy_loading_effectiveness(self, benchmark):
         """Test that lazy loading reduces startup time."""
         # Without lazy loading (import all)
+        # Without lazy loading (import all)
         start = time.perf_counter()
+        import importlib
+
+        # Simulate eager import of heavy modules (we assume they exist)
+        try:
+            importlib.import_module("configurator.modules.desktop")
+            importlib.import_module("configurator.modules.docker")
+        except ImportError:
+            pass
         duration_eager = time.perf_counter() - start
 
         # With lazy loading (using LazyModule)

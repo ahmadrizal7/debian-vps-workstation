@@ -118,7 +118,13 @@ class InstallationDashboard:
         self.layout["modules"].update(self._render_modules())
 
         # Update status section
+        # Update status section
         self.layout["status"].update(self._render_status())
+
+    def _render(self) -> Layout:
+        """Render the dashboard (for testing)."""
+        self._refresh()
+        return self.layout
 
         # Update footer
         completed = sum(1 for m in self.modules.values() if m["status"] == "success")
@@ -233,7 +239,9 @@ class SimpleProgressReporter:
 
             self.modules[name] = status
 
-    def update_circuit_breaker(self, name: str, state: str, failures: int):
+    def update_circuit_breaker(
+        self, name: str, state: str, failure_count: int = 0, failures: Optional[int] = None
+    ):
         """Update circuit breaker (no-op for simple reporter)."""
         pass
 

@@ -15,6 +15,8 @@ from configurator.core.network import NetworkOperationWrapper
 from configurator.core.package_cache import PackageCacheManager
 from configurator.core.rollback import RollbackManager
 from configurator.exceptions import ModuleExecutionError
+from configurator.observability.metrics import get_metrics
+from configurator.observability.structured_logging import StructuredLogger
 from configurator.utils.apt_cache import AptCacheIntegration
 from configurator.utils.circuit_breaker import CircuitBreakerError, CircuitBreakerManager
 from configurator.utils.command import CommandResult, run_command
@@ -81,6 +83,10 @@ class ConfigurationModule(ABC):
         self.state: Dict[str, Any] = {}
         self.installed_packages: List[str] = []
         self.started_services: List[str] = []
+
+        # Observability
+        self.metrics = get_metrics()
+        self.structured_logger = StructuredLogger(self.name)
 
     @abstractmethod
     def validate(self) -> bool:

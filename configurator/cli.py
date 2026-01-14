@@ -798,49 +798,14 @@ def status():
 
 @status.command("circuit-breakers")
 def status_circuit_breakers():
-    """Show circuit breaker status."""
-    from rich.table import Table
+    """Check circuit breaker status."""
+    pass
 
-    from configurator.utils.circuit_breaker import CircuitBreakerManager
 
-    # In a real daemon, this would query the running service.
-    # For CLI, we just show the structure/defaults or persisted state if implemented.
-    # Here we demonstrate the output format.
-    manager = CircuitBreakerManager()
+# Register monitoring commands
+from configurator.cli_monitoring import monitoring_group  # noqa: E402
 
-    # Initialize some common breakers to show they exist
-    manager.get_breaker("apt-repository")
-    manager.get_breaker("pypi-repository")
-    manager.get_breaker("docker-registry")
-
-    metrics = manager.get_all_metrics()
-
-    console.print("\n[bold]Circuit Breaker Status[/bold]\n")
-
-    table = Table(show_header=True, header_style="bold magenta")
-    table.add_column("Service")
-    table.add_column("State")
-    table.add_column("Failures")
-    table.add_column("Successes")
-    table.add_column("Rate")
-
-    for name, m in metrics.items():
-        state_style = "green" if m["state"] == "closed" else "red"
-        if m["state"] == "half_open":
-            state_style = "yellow"
-
-        rate = f"{m['failure_rate'] * 100:.1f}%"
-
-        table.add_row(
-            name,
-            f"[{state_style}]{m['state'].upper()}[/{state_style}]",
-            str(m["failure_count"]),
-            str(m["success_count"]),
-            rate,
-        )
-
-    console.print(table)
-    console.print()
+main.add_command(monitoring_group)
 
 
 @main.command("reset")

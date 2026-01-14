@@ -134,26 +134,29 @@ class CircuitBreaker:
         self.total_calls += 1
 
         # Check if circuit is open
-        if self.state == CircuitState.OPEN:
-            if self._should_attempt_reset():
-                self._transition_to_half_open()
-            else:
-                raise CircuitBreakerError(
-                    name=self.name,
-                    state=self.state,
-                    failure_count=self.failure_count,
-                    last_failure_time=self.last_failure_time,
-                    retry_after=self._time_until_retry(),
-                )
+        with self._state_lock:
+            if self.state == CircuitState.OPEN:
+                if self._should_attempt_reset():
+                    self._transition_to_half_open()
+                else:
+                    raise CircuitBreakerError(
+                        name=self.name,
+                        state=self.state,
+                        failure_count=self.failure_count,
+                        last_failure_time=self.last_failure_time,
+                        retry_after=self._time_until_retry(),
+                    )
 
         # Execute function
         try:
             result = func(*args, **kwargs)
-            self._on_success()
+            with self._state_lock:
+                self._on_success()
             return result
 
         except self.expected_exceptions as e:
-            self._on_failure(e)
+            with self._state_lock:
+                self._on_failure(e)
             raise
 
     def _on_success(self):
@@ -243,25 +246,29 @@ class CircuitBreaker:
 
     def reset(self):
         """Manually reset circuit breaker"""
-        self.state = CircuitState.CLOSED
-        self.failure_count = 0
-        self.success_count = 0
-        self.last_failure_time = None
-        self.logger.info(f"Circuit breaker '{self.name}' manually reset")
+        with self._state_lock:
+            self.state = CircuitState.CLOSED
+            self.failure_count = 0
+            self.success_count = 0
+            self.last_failure_time = None
+            self.logger.info(f"Circuit breaker '{self.name}' manually reset")
 
     def get_metrics(self) -> dict:
         """Get circuit breaker metrics"""
-        return {
-            "name": self.name,
-            "state": self.state.value,
-            "failure_count": self.failure_count,
-            "success_count": self.success_count,
-            "total_calls": self.total_calls,
-            "total_failures": self.total_failures,
-            "total_successes": self.total_successes,
-            "failure_rate": self.total_failures / self.total_calls if self.total_calls > 0 else 0.0,
-            "last_state_change": self.last_state_change.isoformat(),
-        }
+        with self._state_lock:
+            return {
+                "name": self.name,
+                "state": self.state.value,
+                "failure_count": self.failure_count,
+                "success_count": self.success_count,
+                "total_calls": self.total_calls,
+                "total_failures": self.total_failures,
+                "total_successes": self.total_successes,
+                "failure_rate": self.total_failures / self.total_calls
+                if self.total_calls > 0
+                else 0.0,
+                "last_state_change": self.last_state_change.isoformat(),
+            }
 
 
 class CircuitBreakerManager:

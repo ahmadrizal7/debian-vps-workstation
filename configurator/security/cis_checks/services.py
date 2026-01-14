@@ -3,8 +3,6 @@ from typing import List
 from configurator.security.cis_checks.utils import (
     check_package_removed,
     remediate_remove_package,
-    check_service_status,
-    remediate_mask_service,
 )
 from configurator.security.cis_scanner import CISCheck, Severity
 

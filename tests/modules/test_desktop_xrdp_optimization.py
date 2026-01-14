@@ -55,7 +55,7 @@ class TestXRDPOptimizationUnit(unittest.TestCase):
     @patch("configurator.modules.desktop.time.sleep")
     @patch("configurator.utils.file.write_file")
     @patch("configurator.modules.desktop.backup_file")
-    @patch.object(DesktopModule, "install_packages", return_value=True)
+    @patch.object(DesktopModule, "install_packages_resilient", return_value=True)
     @patch.object(DesktopModule, "run")
     def test_optimize_xrdp_performance_creates_valid_config(
         self, mock_run, mock_install, mock_backup, mock_write, mock_sleep
@@ -99,7 +99,7 @@ class TestXRDPOptimizationUnit(unittest.TestCase):
     @patch("configurator.modules.desktop.pwd")
     @patch("configurator.utils.file.write_file")
     @patch("configurator.modules.desktop.backup_file")
-    @patch.object(DesktopModule, "install_packages", return_value=True)
+    @patch.object(DesktopModule, "install_packages_resilient", return_value=True)
     @patch.object(DesktopModule, "run")
     def test_config_values_override_defaults(
         self, mock_run, mock_install, mock_backup, mock_write, mock_pwd, mock_sleep
@@ -124,7 +124,7 @@ class TestXRDPOptimizationUnit(unittest.TestCase):
     @patch("configurator.modules.desktop.time.sleep")
     @patch("configurator.utils.file.write_file")
     @patch("configurator.modules.desktop.backup_file")
-    @patch.object(DesktopModule, "install_packages", return_value=True)
+    @patch.object(DesktopModule, "install_packages_resilient", return_value=True)
     @patch.object(DesktopModule, "run")
     def test_sesman_ini_vncparams(
         self, mock_run, mock_install, mock_backup, mock_write, mock_sleep
@@ -149,7 +149,7 @@ class TestXRDPOptimizationUnit(unittest.TestCase):
     @patch("configurator.modules.desktop.time.sleep")
     @patch("configurator.utils.file.write_file")
     @patch("configurator.modules.desktop.backup_file")
-    @patch.object(DesktopModule, "install_packages", return_value=True)
+    @patch.object(DesktopModule, "install_packages_resilient", return_value=True)
     @patch.object(DesktopModule, "run")
     def test_invalid_max_bpp_falls_back_to_default(
         self, mock_run, mock_install, mock_backup, mock_write, mock_sleep
@@ -347,7 +347,7 @@ class TestXRDPOptimizationUnit(unittest.TestCase):
 
     @patch("configurator.modules.desktop.backup_file")
     @patch("configurator.utils.file.write_file")
-    @patch.object(DesktopModule, "install_packages", return_value=True)
+    @patch.object(DesktopModule, "install_packages_resilient", return_value=True)
     @patch.object(DesktopModule, "run")
     def test_handles_file_write_failure_gracefully(
         self, mock_run, mock_install, mock_write, mock_backup
@@ -363,7 +363,7 @@ class TestXRDPOptimizationUnit(unittest.TestCase):
 
     @patch("configurator.modules.desktop.backup_file")
     @patch("configurator.utils.file.write_file")
-    @patch.object(DesktopModule, "install_packages", return_value=True)
+    @patch.object(DesktopModule, "install_packages_resilient", return_value=True)
     @patch.object(DesktopModule, "run")
     def test_continues_if_backup_fails(self, mock_run, mock_install, mock_write, mock_backup):
         """Test that backup failure doesn't block configuration."""
@@ -383,7 +383,7 @@ class TestXRDPOptimizationUnit(unittest.TestCase):
 
     @patch("configurator.utils.file.write_file")
     @patch("configurator.modules.desktop.backup_file")
-    @patch.object(DesktopModule, "install_packages", return_value=True)
+    @patch.object(DesktopModule, "install_packages_resilient", return_value=True)
     def test_dry_run_mode_does_not_write_files(self, mock_install, mock_backup, mock_write):
         """Test that dry-run mode prevents actual file modifications."""
         self.dry_run_manager.is_enabled = True
@@ -425,7 +425,7 @@ class TestXRDPOptimizationUnit(unittest.TestCase):
     @patch("configurator.modules.desktop.time.sleep")
     @patch("configurator.utils.file.write_file")
     @patch("configurator.modules.desktop.backup_file")
-    @patch.object(DesktopModule, "install_packages", return_value=True)
+    @patch.object(DesktopModule, "install_packages_resilient", return_value=True)
     @patch.object(DesktopModule, "run")
     def test_xrdp_service_restarted_after_config_change(
         self, mock_run, mock_install, mock_backup, mock_write, mock_sleep

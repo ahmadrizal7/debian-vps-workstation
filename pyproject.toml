@@ -99,3 +99,8 @@ markers = [
     "integration: marks tests as integration tests",
     "destructive: marks tests that make system changes (use with caution)",
 ]
+
+[tool.bandit]
+exclude_dirs = ["tests", ".venv"]
+tests = ["B201", "B301"]
+skips = ["B101", "B601"]

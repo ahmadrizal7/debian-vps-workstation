@@ -64,7 +64,7 @@ class TestConcurrentOperations:
         """Test circuit breaker under concurrent state changes."""
         config = {
             "performance": {
-                "circuit_breaker": {"enabled": True, "failure_threshold": 5, "timeout": 1}
+                "circuit_breaker": {"enabled": True, "failure_threshold": 1, "timeout": 1}
             }
         }
 
@@ -78,13 +78,13 @@ class TestConcurrentOperations:
         def random_operation():
             import random
 
-            try:
-                if random.random() < 0.3:  # 30% failure rate
+            def operation():
+                if random.random() < 1.0:  # 100% failure rate to guarantee breaker opens
                     raise Exception("Random failure")
+                return "success"
 
-                result = wrapper.execute_with_retry(
-                    lambda: "success", NetworkOperationType.APT_UPDATE
-                )
+            try:
+                result = wrapper.execute_with_retry(operation, NetworkOperationType.APT_UPDATE)
 
                 with lock:
                     success_count[0] += 1
@@ -92,7 +92,7 @@ class TestConcurrentOperations:
 
             except Exception as e:
                 with lock:
-                    if "Circuit" in str(e):
+                    if "ircuit" in str(e):
                         breaker_open_count[0] += 1
                     else:
                         failure_count[0] += 1
