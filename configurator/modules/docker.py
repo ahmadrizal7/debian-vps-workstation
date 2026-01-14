@@ -12,6 +12,7 @@ import json
 import os
 
 from configurator.modules.base import ConfigurationModule
+from configurator.security.supply_chain import SecurityError, SupplyChainValidator
 from configurator.utils.file import write_file
 
 
@@ -95,8 +96,16 @@ class DockerModule(ConfigurationModule):
         return checks_passed
 
     def _add_docker_repository(self):
-        """Add Docker's official GPG key and repository."""
-        self.logger.info("Adding Docker repository...")
+        """Add Docker's official GPG key and repository with fingerprint verification."""
+        self.logger.info("Adding Docker repository with security verification...")
+
+        # Initialize supply chain validator
+        validator = SupplyChainValidator(self.config.data, self.logger)
+
+        # Get expected fingerprint from checksums database
+        docker_key = validator.checksums.get("apt_keys", {}).get("docker", {})
+        expected_fingerprint = docker_key.get("fingerprint")
+        key_url = docker_key.get("url") or "https://download.docker.com/linux/debian/gpg"
 
         # Remove conflicting docker.list if it exists (legacy)
         if os.path.exists("/etc/apt/sources.list.d/docker.list"):
@@ -109,10 +118,26 @@ class DockerModule(ConfigurationModule):
         # Create keyrings directory
         self.run("install -m 0755 -d /etc/apt/keyrings", check=True)
 
+        # Verify fingerprint before downloading if available
+        if expected_fingerprint and not self.dry_run:
+            try:
+                self.logger.info("Verifying Docker GPG key fingerprint...")
+                validator.verify_apt_key_fingerprint(key_url, expected_fingerprint)
+                self.logger.info("\u2713 Docker GPG key fingerprint verified")
+            except SecurityError as e:
+                self.logger.error(f"Docker GPG key verification failed: {e}")
+                if validator.strict_mode:
+                    raise
+                self.logger.warning("Proceeding without verification (not in strict mode)")
+        elif not expected_fingerprint:
+            self.logger.warning(
+                "\u26a0\ufe0f  No fingerprint available for Docker GPG key - SECURITY RISK\\n"
+                "\u26a0\ufe0f  Consider updating configurator/security/checksums.yaml"
+            )
+
         # Download Docker's GPG key
         self.run(
-            "curl -fsSL https://download.docker.com/linux/debian/gpg "
-            "-o /etc/apt/keyrings/docker.asc",
+            f"curl -fsSL {key_url} -o /etc/apt/keyrings/docker.asc",
             check=True,
         )
 

@@ -2,8 +2,10 @@ import os
 import pwd
 import shutil
 import time
+from pathlib import Path
 
 from configurator.modules.base import ConfigurationModule
+from configurator.security.supply_chain import SecureDownloader, SecurityError, SupplyChainValidator
 from configurator.utils.file import backup_file
 
 
@@ -1454,8 +1456,8 @@ ResultActive=yes
         return True
 
     def _install_oh_my_zsh(self) -> bool:
-        """Install Oh My Zsh framework for all regular users."""
-        self.logger.info("Installing Oh My Zsh...")
+        """Install Oh My Zsh framework with supply chain security verification."""
+        self.logger.info("Installing Oh My Zsh (with security verification)...")
         try:
             import pwd
 
@@ -1464,23 +1466,51 @@ ResultActive=yes
                 self.logger.warning("No regular users found for Oh My Zsh installation")
                 return True
 
-            installer_url = (
-                "https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh"
-            )
-            installer_path = "/tmp/ohmyzsh_install.sh"
+            # Initialize secure downloader
+            validator = SupplyChainValidator(self.config.data, self.logger)
+            downloader = SecureDownloader(validator, self.logger)
 
-            # Download installer
-            self.logger.debug("Downloading Oh My Zsh installer...")
+            # Get checksum from database
+            checksums = validator.checksums.get("oh_my_zsh", {})
+            install_script = checksums.get("install_script", {})
+
+            installer_url = (
+                install_script.get("url")
+                or "https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh"
+            )
+            expected_checksum = install_script.get("sha256")
+
+            if not expected_checksum:
+                self.logger.warning(
+                    "⚠️  No checksum available for Oh My Zsh installer\n"
+                    "⚠️  This is a SECURITY RISK - consider updating checksums.yaml"
+                )
+                # In strict mode, fail here
+                if self.get_config("security_advanced.supply_chain.strict_mode", False):
+                    self.logger.error(
+                        "Strict mode enabled - cannot install without checksum verification"
+                    )
+                    return False
+
+            installer_path = Path("/tmp/ohmyzsh_install.sh")
+
+            # Download with verification
+            self.logger.debug("Downloading Oh My Zsh installer with security verification...")
             if not self.dry_run:
-                download_cmd = f"curl -fsSL {installer_url} -o {installer_path}"
-                result = self.run(download_cmd, check=False)
-                if not result.success:
-                    self.logger.error(f"Failed to download Oh My Zsh installer: {result.stderr}")
+                try:
+                    success = downloader.download_script(
+                        installer_url, installer_path, expected_checksum
+                    )
+                    if not success:
+                        self.logger.error("Failed to download or verify Oh My Zsh installer")
+                        return False
+                except SecurityError as e:
+                    self.logger.error(f"Security verification failed: {e}")
                     return False
             else:
-                self.logger.info(f"MOCKED RUN: Download {installer_url}")
+                self.logger.info(f"MOCKED RUN: Download and verify {installer_url}")
                 # Mock file creation for dry run checks
-                if not os.path.exists(installer_path):
+                if not installer_path.exists():
                     self.run(f"touch {installer_path}", check=False)
 
             installed_count = 0
@@ -1527,13 +1557,29 @@ ResultActive=yes
             return False
 
     def _install_powerlevel10k(self) -> bool:
-        """Install Powerlevel10k theme for Oh My Zsh."""
+        """Install Powerlevel10k theme with git commit pinning."""
         self.logger.info("Installing Powerlevel10k theme...")
         try:
             import pwd
 
             users = [u for u in pwd.getpwall() if 1000 <= u.pw_uid < 60000]
-            p10k_repo = "https://github.com/romkatv/powerlevel10k.git"
+
+            # Initialize secure downloader
+            validator = SupplyChainValidator(self.config.data, self.logger)
+            downloader = SecureDownloader(validator, self.logger)
+
+            # Get pinned commit from database
+            p10k_data = validator.checksums.get("powerlevel10k", {}).get("git_commit", {})
+
+            p10k_repo = p10k_data.get("url") or "https://github.com/romkatv/powerlevel10k.git"
+            pinned_commit = p10k_data.get("commit")
+
+            if not pinned_commit:
+                self.logger.warning(
+                    "\u26a0\ufe0f  No commit pinned for Powerlevel10k - using latest (RISKY)"
+                )
+                pinned_commit = None
+
             installed_count = 0
 
             for user in users:
@@ -1547,17 +1593,51 @@ ResultActive=yes
                     installed_count += 1
                     continue
 
-                clone_cmd = f"su - {user.pw_name} -c 'git clone --depth=1 {p10k_repo} {p10k_dir}'"
-                result = self.run(clone_cmd, check=False)
+                if not self.dry_run:
+                    try:
+                        # Use secure git clone with commit verification
+                        # Note: Need to run as user
+                        if pinned_commit:
+                            clone_cmd = f"su - {user.pw_name} -c 'git clone --depth=1 {p10k_repo} {p10k_dir} && cd {p10k_dir} && git fetch --depth=1 origin {pinned_commit} && git checkout {pinned_commit}'"
+                        else:
+                            clone_cmd = f"su - {user.pw_name} -c 'git clone --depth=1 {p10k_repo} {p10k_dir}'"
 
-                if result.success or self.dry_run:
-                    self.logger.debug(f"✓ Powerlevel10k installed for {user.pw_name}")
+                        result = self.run(clone_cmd, check=False)
+
+                        if result.success:
+                            # Verify commit if pinned
+                            if pinned_commit:
+                                verify_cmd = f"cd {p10k_dir} && git rev-parse HEAD"
+                                verify_result = self.run(verify_cmd, check=False)
+                                actual_commit = verify_result.stdout.strip()
+
+                                if actual_commit != pinned_commit:
+                                    self.logger.warning(
+                                        f"Git commit mismatch for {user.pw_name}: "
+                                        f"expected {pinned_commit[:8]}, got {actual_commit[:8]}"
+                                    )
+                                else:
+                                    self.logger.debug(
+                                        f"\u2713 Powerlevel10k commit verified for {user.pw_name}"
+                                    )
+
+                            self.logger.debug(f"\u2713 Powerlevel10k installed for {user.pw_name}")
+                            installed_count += 1
+                            self.rollback_manager.add_command(
+                                f"rm -rf {p10k_dir}", f"Remove Powerlevel10k for {user.pw_name}"
+                            )
+                        else:
+                            self.logger.warning(
+                                f"Failed to install Powerlevel10k for {user.pw_name}: {result.stderr}"
+                            )
+                    except SecurityError as e:
+                        self.logger.error(f"Security verification failed: {e}")
+                        return False
+                else:
+                    self.logger.debug(f"MOCKED: Clone {p10k_repo} for {user.pw_name}")
                     installed_count += 1
-                    self.rollback_manager.add_command(
-                        f"rm -rf {p10k_dir}", f"Remove Powerlevel10k for {user.pw_name}"
-                    )
 
-            self.logger.info(f"✓ Powerlevel10k installed for {installed_count} user(s)")
+            self.logger.info(f"\u2713 Powerlevel10k installed for {installed_count} user(s)")
             return True
         except Exception as e:
             self.logger.error(f"Powerlevel10k installation failed: {e}", exc_info=True)

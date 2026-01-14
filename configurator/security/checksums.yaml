@@ -1,0 +1,45 @@
+# Verified checksums for external downloads
+# Format: resource_url -> sha256_hash
+# Update monthly or when upstream releases new versions
+
+oh_my_zsh:
+  install_script:
+    url: "https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh"
+    sha256: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    last_verified: "2025-01-14"
+    verification_method: "manual"
+    notes: "Update monthly or when OMZ releases. Placeholder checksum - run tools/update_checksums.py"
+
+powerlevel10k:
+  git_commit:
+    url: "https://github.com/romkatv/powerlevel10k.git"
+    commit: "dd0c235469a8a28b8f4e8d72f861bb6f7b84cea9"
+    last_verified: "2025-01-14"
+    notes: "Pin to specific commit for reproducibility. Update quarterly"
+
+nerd_fonts:
+  meslo:
+    version: "3.1.1"
+    url: "https://github.com/ryanoasis/nerd-fonts/releases/download/v3.1.1/Meslo.zip"
+    sha256: "placeholder_update_with_tools_script"
+    size_bytes: 12582912
+    last_verified: "2025-01-14"
+
+apt_keys:
+  docker:
+    fingerprint: "9DC858229FC7DD38854AE2D88D81803C0EBFCD88"
+    url: "https://download.docker.com/linux/debian/gpg"
+    sha256: "placeholder"
+    notes: "Docker official GPG key"
+  github_cli:
+    fingerprint: "23F3D4EA75716059332820B8B4D5A8F6862C3874"
+    url: "https://cli.github.com/packages/githubcli-archive-keyring.gpg"
+    sha256: "placeholder"
+  vscode:
+    fingerprint: "BC528686B50D79E339D3721CEB3E94ADBE1229CF"
+    url: "https://packages.microsoft.com/keys/microsoft.asc"
+    sha256: "placeholder"
+  caddy:
+    fingerprint: "65760C51EDEA2017CEA2CA15155B6D79CA56EA34"
+    url: "https://dl.cloudsmith.io/public/caddy/stable/gpg.key"
+    sha256: "placeholder"

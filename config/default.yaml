@@ -505,16 +505,32 @@ security_advanced:
     enabled: true
     verify_checksums: true
     verify_signatures: true
+    verify_apt_keys: true # NEW: Verify APT repository key fingerprints
+
+    # Strict mode: Fail if no checksum available (default: false for backward compatibility)
+    strict_mode: false
+
     allowed_sources:
       github:
         - "github.com/ohmyzsh/ohmyzsh"
         - "github.com/romkatv/powerlevel10k"
         - "github.com/EliverLara/Nordic"
+        - "github.com/ryanoasis/nerd-fonts"
       apt:
         - "deb.debian.org"
         - "security.debian.org"
-    checksum_database: "/etc/vps-configurator/checksums.db"
+        - "download.docker.com"
+        - "packages.microsoft.com"
+        - "cli.github.com"
+        - "dl.cloudsmith.io" # Caddy
+      web:
+        - "raw.githubusercontent.com"
+
+    checksum_database: "/etc/vps-configurator/checksums.db" # Legacy database
     signature_verification: "gpg"
+
+    # Audit logging
+    audit_log: "/var/log/vps-configurator/supply-chain-audit.log"
 
   # Input Validation
   input_validation:
