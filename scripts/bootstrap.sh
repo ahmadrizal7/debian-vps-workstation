@@ -96,13 +96,13 @@ else
     # Try to clone from git
     if command -v git &> /dev/null; then
         echo "Cloning repository..."
-        git clone https://github.com/youruser/debian-vps-configurator.git
+        git clone https://github.com/yunaamelia/debian-vps-workstation.git
         cd debian-vps-configurator
     else
         echo "Installing git..."
         apt-get update
         DEBIAN_FRONTEND=noninteractive apt-get install -y git
-        git clone https://github.com/youruser/debian-vps-configurator.git
+        git clone https://github.com/yunaamelia/debian-vps-workstation.git
         cd debian-vps-configurator
     fi
 fi
