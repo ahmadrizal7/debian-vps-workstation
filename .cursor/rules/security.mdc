@@ -1,0 +1,199 @@
+---
+description: Security best practices for secure coding, authentication, and system hardening. Apply these rules when working with security features.
+globs: configurator/security/**/*.py, configurator/rbac/**/*.py, configurator/users/**/*.py
+---
+
+# Security Best Practices
+
+## Input Validation
+- Validate all user inputs
+- Sanitize inputs before processing
+- Use allowlists instead of blocklists
+- Validate data types and ranges
+- Reject suspicious patterns
+- Never trust user input
+
+## Authentication
+- Use strong password hashing (bcrypt, argon2, scrypt)
+- Never store passwords in plain text
+- Implement proper session management
+- Use secure session tokens
+- Implement proper logout functionality
+- Support multi-factor authentication (2FA/MFA)
+- Use TOTP for time-based one-time passwords
+
+## Authorization (RBAC)
+- Implement role-based access control
+- Follow principle of least privilege
+- Check permissions before operations
+- Validate user roles and permissions
+- Implement proper access control lists
+- Log all authorization decisions
+
+## Secrets Management
+- Never hardcode secrets or credentials
+- Use environment variables for sensitive data
+- Use encrypted storage for secrets (Fernet, etc.)
+- Rotate secrets regularly
+- Use proper key derivation (PBKDF2, Argon2)
+- Store master keys securely (restricted file permissions)
+- Never log secrets or passwords
+
+## Encryption
+- Use strong encryption algorithms (AES-256)
+- Use proper key management
+- Encrypt sensitive data at rest
+- Use TLS/SSL for data in transit
+- Use proper initialization vectors (IVs)
+- Never reuse encryption keys
+
+## Logging and Monitoring
+- Log security events (authentication, authorization, access)
+- Never log sensitive data (passwords, tokens, secrets)
+- Use structured logging for security events
+- Implement audit trails
+- Monitor for suspicious activities
+- Alert on security anomalies
+
+## Error Handling
+- Don't expose sensitive information in error messages
+- Use generic error messages for users
+- Log detailed errors server-side only
+- Don't reveal system internals in errors
+- Handle errors gracefully without information leakage
+
+## File Operations
+- Validate file paths (prevent path traversal)
+- Restrict file permissions (chmod 600 for sensitive files)
+- Validate file types and sizes
+- Scan uploaded files for malware
+- Use secure temporary file handling
+- Clean up temporary files
+
+## Command Execution
+- Validate and sanitize command inputs
+- Use parameterized commands (not string concatenation)
+- Implement command whitelisting
+- Restrict command execution to authorized users
+- Log all command executions
+- Use subprocess with proper security settings
+
+## Network Security
+- Use HTTPS/TLS for all network communications
+- Validate SSL certificates
+- Implement proper CORS policies
+- Use rate limiting
+- Implement firewall rules
+- Monitor network traffic
+
+## Supply Chain Security
+- Verify checksums for downloaded files
+- Validate GPG signatures when available
+- Pin git commit hashes for reproducibility
+- Use allowlists for trusted sources
+- Implement secure download mechanisms
+- Audit all external dependencies
+
+## CIS Compliance
+- Follow CIS benchmark guidelines
+- Implement security hardening checks
+- Automate security compliance scanning
+- Remediate security findings
+- Document security configurations
+- Maintain security baselines
+
+## Vulnerability Management
+- Scan for known vulnerabilities (CVE database)
+- Keep dependencies up to date
+- Use security scanning tools (Bandit, Safety)
+- Patch vulnerabilities promptly
+- Implement vulnerability reporting
+- Track vulnerability remediation
+
+## SSH Security
+- Disable root password login
+- Use SSH key authentication
+- Implement key rotation policies
+- Restrict SSH access by IP if possible
+- Use fail2ban for brute force protection
+- Configure proper SSH settings
+
+## RBAC Implementation
+- Define roles with minimal required permissions
+- Implement permission inheritance properly
+- Validate permissions on every operation
+- Use deny-by-default approach
+- Implement permission caching for performance
+- Log all permission checks
+
+## Activity Monitoring
+- Log all user activities
+- Track authentication events
+- Monitor privilege escalations
+- Detect anomalous behavior
+- Implement alerting for suspicious activities
+- Retain audit logs per compliance requirements
+
+## Best Practices
+- Follow OWASP Top 10 guidelines
+- Implement defense in depth
+- Use security headers where applicable
+- Keep security libraries updated
+- Conduct regular security audits
+- Document security decisions
+- Train team on security awareness
+
+## Code Examples
+
+### Secure Password Hashing
+```python
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+import os
+
+def hash_password(password: str, salt: bytes = None) -> tuple[bytes, bytes]:
+    """Hash password using PBKDF2."""
+    if salt is None:
+        salt = os.urandom(16)
+    kdf = PBKDF2HMAC(
+        algorithm=hashes.SHA256(),
+        length=32,
+        salt=salt,
+        iterations=100000,
+    )
+    key = kdf.derive(password.encode())
+    return key, salt
+```
+
+### Input Validation
+```python
+import re
+from typing import Optional
+
+def validate_username(username: str) -> bool:
+    """Validate username format."""
+    if not username or len(username) < 3 or len(username) > 32:
+        return False
+    # Allow only alphanumeric and underscore
+    if not re.match(r'^[a-zA-Z0-9_]+$', username):
+        return False
+    return True
+```
+
+### Secure File Operations
+```python
+from pathlib import Path
+import os
+
+def secure_write_file(file_path: Path, content: str) -> None:
+    """Write file with secure permissions."""
+    # Validate path (prevent directory traversal)
+    if '..' in str(file_path):
+        raise ValueError("Invalid file path")
+
+    # Write file
+    file_path.write_text(content)
+
+    # Set restrictive permissions (owner read/write only)
+    os.chmod(file_path, 0o600)
+```

@@ -335,13 +335,16 @@ class SupplyChainValidator:
                 how="Check network connection and retry",
             )
 
-    def verify_apt_key_fingerprint(self, key_url: str, expected_fingerprint: str) -> bool:
+    def verify_apt_key_fingerprint(
+        self, key_source: str, expected_fingerprint: str, is_local_file: bool = False
+    ) -> bool:
         """
         Verify APT repository GPG key fingerprint.
 
         Args:
-            key_url: URL to GPG key
+            key_source: URL to GPG key or local file path
             expected_fingerprint: Expected key fingerprint (40 hex chars)
+            is_local_file: True if key_source is a local file path
 
         Returns:
             bool: True if fingerprint matches
@@ -353,30 +356,47 @@ class SupplyChainValidator:
             return True
 
         try:
-            # Download key to temp file
-            with tempfile.NamedTemporaryFile(delete=False, suffix=".gpg") as tmp:
-                tmp_path = Path(tmp.name)
+            if is_local_file:
+                # Use existing local file
+                tmp_path = Path(key_source)
+                cleanup_needed = False
+            else:
+                # Download key to temp file
+                with tempfile.NamedTemporaryFile(delete=False, suffix=".gpg") as tmp:
+                    tmp_path = Path(tmp.name)
+                cleanup_needed = True
 
-            subprocess.run(
-                ["curl", "-fsSL", key_url, "-o", str(tmp_path)],
-                check=True,
-                capture_output=True,
-                timeout=30,
-            )
+                subprocess.run(
+                    ["curl", "-fsSL", key_source, "-o", str(tmp_path)],
+                    check=True,
+                    capture_output=True,
+                    timeout=30,
+                )
 
-            # Get fingerprint using gpg
+            # Get fingerprint using gpg with machine-readable output
             result = subprocess.run(
-                ["gpg", "--with-fingerprint", str(tmp_path)],
+                ["gpg", "--with-colons", "--show-keys", str(tmp_path)],
                 capture_output=True,
                 text=True,
                 timeout=10,
             )
 
-            # Clean up temp file
-            tmp_path.unlink()
+            # Clean up temp file if we created it
+            if cleanup_needed:
+                tmp_path.unlink()
 
-            # Extract fingerprint from output
-            fingerprints = re.findall(r"[A-F0-9]{40}", result.stdout)
+            # Extract fingerprints from output (looking for 'fpr' record type)
+            # Format: fpr:::::::::FINGERPRINT:
+            fingerprints = []
+            for line in result.stdout.splitlines():
+                if line.startswith("fpr:"):
+                    parts = line.split(":")
+                    if len(parts) > 9:
+                        fingerprints.append(parts[9])
+
+            if not fingerprints:
+                # Fallback to standard output check if no fpr records found (unlikely with --with-colons)
+                fingerprints = re.findall(r"[A-F0-9]{40}", result.stdout.replace(" ", "").upper())
 
             # Normalize fingerprints (remove spaces)
             expected_normalized = expected_fingerprint.replace(" ", "").upper()
@@ -390,7 +410,7 @@ class SupplyChainValidator:
                 )
 
             self.logger.info(f"✅ APT key fingerprint verified: {expected_fingerprint[:16]}...")
-            self._audit_log("apt_key_verified", key_url, expected_fingerprint)
+            self._audit_log("apt_key_verified", key_source, expected_fingerprint)
             return True
 
         except FileNotFoundError:

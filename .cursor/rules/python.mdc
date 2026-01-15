@@ -1,0 +1,125 @@
+---
+description: Python best practices and patterns for modern CLI development with Click, Pydantic, and pytest
+globs: **/*.py, configurator/**/*.py, tests/**/*.py
+---
+
+# Python Best Practices
+
+## Project Structure
+- Use package layout with `configurator/` as main package
+- Place tests in `tests/` directory parallel to package root
+- Keep configuration in `config/` directory (YAML files)
+- Store requirements in `requirements.txt` and `pyproject.toml`
+- Organize modules by domain (core, security, rbac, users, etc.)
+- Use `__init__.py` files for proper package structure
+
+## Code Style
+- Follow Ruff code formatting (configured in pyproject.toml)
+- Line length: 100 characters (as per project config)
+- Follow PEP 8 naming conventions:
+  - snake_case for functions and variables
+  - PascalCase for classes
+  - UPPER_CASE for constants
+- Use absolute imports over relative imports
+- Import sorting handled by ruff isort
+
+## Type Hints
+- Use type hints for all function parameters and returns
+- Import types from `typing` module
+- Use `Optional[Type]` for nullable types
+- Use `TypeVar` for generic types
+- Define custom types in dedicated modules when needed
+- Use `Protocol` for duck typing interfaces
+
+## CLI Structure (Click)
+- Use Click for command-line interface
+- Organize commands using Click groups
+- Use Click decorators for options and arguments
+- Implement proper error handling with Click exceptions
+- Use Rich for console output and formatting
+- Structure CLI commands with proper separation of concerns
+- Use lazy loading for heavy modules to ensure fast startup
+
+## Configuration Management
+- Use Pydantic for configuration validation
+- Store configuration in YAML files
+- Use environment variables for sensitive data
+- Implement configuration profiles (beginner, intermediate, advanced)
+- Validate configuration on load
+- Provide sensible defaults
+
+## Database (SQLite for activity monitoring)
+- Use proper connection management
+- Implement proper migrations if needed
+- Use proper connection pooling
+- Define models in separate modules
+- Implement proper relationships
+- Use proper indexing strategies
+
+## Testing
+- Use pytest for testing
+- Write tests for all CLI commands
+- Use pytest-cov for coverage
+- Implement proper fixtures in conftest.py
+- Use proper mocking with pytest-mock
+- Test all error scenarios
+- Organize tests: unit/, integration/, e2e/
+- Use pytest markers (slow, integration, destructive)
+
+## Security
+- Sanitize all user inputs
+- Use proper logging (no sensitive data)
+- Follow OWASP guidelines
+- Implement proper RBAC checks
+- Use cryptography library for security operations
+- Never log passwords or secrets
+- Validate all external inputs
+
+## Performance
+- Use lazy loading for heavy modules
+- Implement proper caching where appropriate
+- Use parallel execution for independent tasks
+- Implement circuit breaker pattern for resilience
+- Monitor application performance
+- Optimize startup time (target: <100ms)
+
+## Error Handling
+- Create custom exception classes in exceptions.py
+- Use proper try-except blocks
+- Implement proper logging with structured logging
+- Return proper error messages to users
+- Handle edge cases properly
+- Use proper error codes
+
+## Documentation
+- Use Google-style docstrings
+- Document all public APIs
+- Keep README.md updated
+- Use proper inline comments for complex logic
+- Document CLI commands and options
+- Document environment setup
+
+## Development Workflow
+- Use virtual environments (venv)
+- Use ruff for linting and formatting
+- Use mypy for type checking (configured in pyproject.toml)
+- Follow semantic versioning
+- Use proper CI/CD practices
+- Implement proper logging
+
+## Dependencies
+- Pin dependency versions in requirements.txt
+- Use requirements.txt for production
+- Use requirements-dev.txt for development
+- Use pyproject.toml for project metadata
+- Regularly update dependencies
+- Check for security vulnerabilities with bandit
+
+## Module Organization
+- Core modules in `configurator/core/`
+- Security modules in `configurator/security/`
+- RBAC modules in `configurator/rbac/`
+- User management in `configurator/users/`
+- Observability in `configurator/observability/`
+- Utilities in `configurator/utils/`
+- Plugins in `configurator/plugins/`

@@ -39,7 +39,7 @@ class RetryConfig:
     jitter: bool = True
 
     # Specific timeouts
-    apt_timeout: int = 300  # 5 minutes
+    apt_timeout: int = 1200  # 20 minutes
     download_timeout: int = 600  # 10 minutes
     git_timeout: int = 300  # 5 minutes
 
@@ -261,16 +261,37 @@ class NetworkOperationWrapper:
                 return False
 
         self.logger.info(f"Installing packages: {', '.join(packages)}")
+        self.logger.info("This may take several minutes for large packages (e.g., xfce4)...")
 
         def apt_install():
-            cmd = ["apt-get", "install", "-y", "-qq"] + packages
+            # Use -q instead of -qq to show progress, and add --show-progress for visual feedback
+            # This ensures output is generated during long installations
+            cmd = ["apt-get", "install", "-y", "-q", "--show-progress"] + packages
 
-            result = subprocess.run(
-                cmd, capture_output=True, text=True, timeout=self.retry_config.apt_timeout
+            # Use Popen to stream output in real-time for better visibility
+            process = subprocess.Popen(
+                cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1
             )
 
-            if result.returncode != 0:
-                raise Exception(f"Package installation failed: {result.stderr}")
+            # Stream output line by line to show progress
+            last_log_time = time.time()
+            for line in iter(process.stdout.readline, ""):
+                if line:
+                    # Log every 30 seconds to show progress without spamming
+                    current_time = time.time()
+                    if current_time - last_log_time >= 30:
+                        # Extract progress info if available
+                        if "%" in line or "Setting up" in line or "Unpacking" in line:
+                            self.logger.info(f"Progress: {line.strip()}")
+                            last_log_time = current_time
+                        elif "Get:" in line or "Fetched" in line:
+                            # Show download progress
+                            self.logger.debug(f"Download: {line.strip()[:80]}")
+
+            process.wait()
+
+            if process.returncode != 0:
+                raise Exception(f"Package installation failed with exit code {process.returncode}")
 
             return True
 

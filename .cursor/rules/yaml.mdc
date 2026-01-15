@@ -1,0 +1,115 @@
+---
+description: YAML configuration best practices. Apply these rules when working with YAML configuration files.
+globs: config/**/*.yaml, config/**/*.yml, **/*.yaml, **/*.yml
+---
+
+# YAML Best Practices
+
+## File Structure
+- Use `.yaml` extension (preferred over `.yml`)
+- Use consistent indentation (2 spaces recommended)
+- Use proper file encoding (UTF-8)
+- Keep configuration files organized in `config/` directory
+- Use descriptive file names
+
+## YAML Syntax
+- Use spaces for indentation (never tabs)
+- Use consistent indentation (2 or 4 spaces, stick to one)
+- Use proper key-value pairs
+- Use lists for arrays
+- Use nested structures for hierarchical data
+- Quote strings when they contain special characters
+
+## Configuration Organization
+- Group related settings together
+- Use nested structures for logical grouping
+- Provide sensible defaults
+- Document configuration options
+- Use comments to explain non-obvious settings
+- Keep configuration files readable
+
+## Validation
+- Validate YAML syntax before use
+- Validate configuration values (types, ranges)
+- Use Pydantic or similar for schema validation
+- Provide clear error messages for invalid config
+- Validate required fields
+
+## Best Practices
+- Use consistent naming conventions (snake_case for keys)
+- Keep configuration files version controlled
+- Document all configuration options
+- Use environment-specific configs when needed
+- Avoid hardcoding values in code (use config)
+- Support configuration profiles (beginner, intermediate, advanced)
+
+## Example Structure
+```yaml
+# System configuration
+system:
+  hostname: dev-workstation
+  timezone: UTC
+  locale: en_US.UTF-8
+  swap_size_gb: 4
+
+# Security settings
+security:
+  enabled: true
+  ufw:
+    enabled: true
+    ssh_port: 22
+  fail2ban:
+    enabled: true
+
+# Language configurations
+languages:
+  python:
+    enabled: true
+    version: "3.11"
+    dev_tools:
+      - pytest
+      - black
+  nodejs:
+    enabled: false
+```
+
+## Configuration Loading
+- Load configuration with proper error handling
+- Support configuration merging (defaults + user config)
+- Support environment variable overrides
+- Cache loaded configuration when appropriate
+- Validate configuration on load
+
+## Type Safety
+- Use proper YAML types (strings, numbers, booleans, lists, maps)
+- Be explicit with types when ambiguous
+- Use quotes for strings that could be interpreted as other types
+- Use proper boolean values (true/false, not yes/no)
+
+## Comments
+- Use comments to explain configuration options
+- Document default values
+- Explain why certain settings are configured
+- Add examples for complex configurations
+- Keep comments up to date
+
+## Security
+- Never store secrets in YAML files
+- Use environment variables or secrets manager for sensitive data
+- Validate configuration to prevent injection attacks
+- Restrict file permissions on sensitive config files
+- Use encrypted storage for sensitive configurations
+
+## Profiles
+- Support multiple configuration profiles
+- Allow profile selection at runtime
+- Merge profile configs with base config
+- Document profile differences
+- Provide profile validation
+
+## Error Handling
+- Provide clear error messages for invalid YAML
+- Indicate line numbers for syntax errors
+- Validate required fields with helpful messages
+- Handle missing configuration gracefully
+- Provide defaults when possible

@@ -244,7 +244,7 @@ class CaddyModule(ConfigurationModule):
             is_enabled = result_enabled.success or result_enabled.stdout.strip() == "enabled"
 
             if is_active or is_enabled:
-                self.logger.warning(f"Found conflicting service: {service}")
+                self.logger.info(f"Found conflicting service: {service}")
                 self.logger.info(f"Stopping and disabling {service}...")
 
                 self.run(f"systemctl stop {service}", check=False)

@@ -85,7 +85,7 @@ class CursorModule(ConfigurationModule):
         # New URL for .deb package (v2.3)
         # Using the specific version endpoint as requested by user
         cursor_url = "https://api2.cursor.sh/updates/download/golden/linux-x64-deb/cursor/2.3"
-        temp_deb = "/tmp/cursor.deb"
+        temp_deb = str(Path.home() / "cursor.deb")
 
         self.logger.info("Downloading Cursor .deb package...")
         try:

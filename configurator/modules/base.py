@@ -221,11 +221,9 @@ class ConfigurationModule(ABC):
 
             if success:
                 # Register for rollback
-                for package in packages:
-                    self.rollback_manager.register_action(
-                        f"remove_package_{package}",
-                        lambda p=package: self.run(f"apt-get remove -y {p}", check=False),
-                    )
+                self.rollback_manager.add_package_remove(
+                    packages, description=f"Remove packages: {', '.join(packages)}"
+                )
 
                 self.installed_packages.extend(packages)
 
@@ -295,7 +293,7 @@ class ConfigurationModule(ABC):
             env["DEBIAN_FRONTEND"] = "noninteractive"
 
             def _install():
-                # Retry install if another process has the lock
+                # Retry install if another process has the lock or dpkg was interrupted
                 for retry_attempt in range(3):
                     result = self.run(
                         f"apt-get install -y {packages_str}",
@@ -304,13 +302,15 @@ class ConfigurationModule(ABC):
                     )
                     if result.return_code == 0:
                         return result
+
+                    # Handle APT lock issues
                     if (
                         "Could not get lock" in result.stderr
                         or "Could not get lock" in result.stdout
                     ):
-                        if retry < 2:
+                        if retry_attempt < 2:
                             self.logger.debug(
-                                f"APT lock busy during install, waiting... (attempt {retry + 1}/3)"
+                                f"APT lock busy during install, waiting... (attempt {retry_attempt + 1}/3)"
                             )
                             import time
 
@@ -322,6 +322,120 @@ class ConfigurationModule(ABC):
                                 why="APT/dpkg lock is held by another process",
                                 how="Wait for other package operations to complete or run: sudo lsof /var/lib/dpkg/lock-frontend",
                             )
+                    # Handle dpkg interrupted errors
+                    elif (
+                        "dpkg was interrupted" in result.stderr
+                        or "you must manually run 'dpkg --configure -a'" in result.stderr
+                    ):
+                        # #region agent log
+                        import json
+
+                        try:
+                            with open(
+                                "/home/racoon/Desktop/debian-vps-workstation/.cursor/debug.log", "a"
+                            ) as f:
+                                f.write(
+                                    json.dumps(
+                                        {
+                                            "sessionId": "debug-session",
+                                            "runId": "dpkg-fix",
+                                            "hypothesisId": "B",
+                                            "location": "configurator/modules/base.py:_install",
+                                            "message": "dpkg interrupted detected",
+                                            "data": {
+                                                "retry_attempt": retry_attempt,
+                                                "stderr": result.stderr[:200],
+                                            },
+                                            "timestamp": int(time.time() * 1000),
+                                        }
+                                    )
+                                    + "\n"
+                                )
+                        except Exception:
+                            pass
+                        # #endregion
+                        if retry_attempt == 0:
+                            self.logger.info(
+                                "dpkg was interrupted, fixing with 'dpkg --configure -a'..."
+                            )
+                            self.logger.info(
+                                "Note: This operation may take several minutes without output..."
+                            )
+                            # #region agent log
+                            import json
+
+                            try:
+                                with open(
+                                    "/home/racoon/Desktop/debian-vps-workstation/.cursor/debug.log",
+                                    "a",
+                                ) as f:
+                                    f.write(
+                                        json.dumps(
+                                            {
+                                                "sessionId": "debug-session",
+                                                "runId": "dpkg-fix",
+                                                "hypothesisId": "B",
+                                                "location": "configurator/modules/base.py:_install",
+                                                "message": "Running dpkg --configure -a",
+                                                "data": {},
+                                                "timestamp": int(time.time() * 1000),
+                                            }
+                                        )
+                                        + "\n"
+                                    )
+                            except Exception:
+                                pass
+                            # #endregion
+                            # Run dpkg --configure -a with progress output to avoid timeout
+                            fix_result = self.run(
+                                r"dpkg --configure -a 2>&1 | while IFS= read -r line; do echo \"[dpkg-fix] $line\"; done",
+                                check=False,
+                                env=env,
+                            )
+                            # #region agent log
+                            try:
+                                with open(
+                                    "/home/racoon/Desktop/debian-vps-workstation/.cursor/debug.log",
+                                    "a",
+                                ) as f:
+                                    f.write(
+                                        json.dumps(
+                                            {
+                                                "sessionId": "debug-session",
+                                                "runId": "dpkg-fix",
+                                                "hypothesisId": "B",
+                                                "location": "configurator/modules/base.py:_install",
+                                                "message": "dpkg --configure -a completed",
+                                                "data": {
+                                                    "return_code": fix_result.return_code,
+                                                    "success": fix_result.return_code == 0,
+                                                },
+                                                "timestamp": int(time.time() * 1000),
+                                            }
+                                        )
+                                        + "\n"
+                                    )
+                            except Exception:
+                                pass
+                            # #endregion
+                            if fix_result.return_code == 0:
+                                self.logger.info(
+                                    "✓ dpkg configuration fixed, retrying package installation..."
+                                )
+                                continue  # Retry the installation
+                            else:
+                                self.logger.warning(
+                                    f"dpkg --configure -a failed: {fix_result.stderr}"
+                                )
+                        # If fix didn't work or we've already tried, raise error
+                        raise ModuleExecutionError(
+                            what=f"Cannot install packages: {packages_str}",
+                            why=f"dpkg was interrupted and could not be automatically fixed.\n{result.stderr}",
+                            how="""Try manually fixing dpkg:
+1. Run: sudo dpkg --configure -a
+2. Run: sudo apt-get install -f
+3. Then retry the installation""",
+                        )
                     else:
                         # Different error, raise it
                         if result.return_code != 0:
@@ -417,12 +531,33 @@ Try these steps:
                 self.dry_run_manager.record_service_action(service, action)
             return True
 
-        self.run(f"systemctl enable {service}", check=True)
+        # Check if already enabled to avoid symlink conflicts
+        if not self.is_service_enabled(service):
+            # Handle case where file exists but service is not enabled
+            # (happens when install script copies file instead of symlinking)
+            enable_result = self.run(f"systemctl enable {service}", check=False)
+            if not enable_result.success and "already exists" in enable_result.stderr:
+                self.logger.debug(f"Fixing broken service symlink for {service}")
+                # Remove the file and retry
+                self.run(
+                    f"rm -f /etc/systemd/system/multi-user.target.wants/{service}.service",
+                    check=False,
+                )
+                self.run(f"systemctl enable {service}", check=True)
+            elif not enable_result.success:
+                # Re-raise for other errors
+                enable_result.check_returncode()
+        else:
+            self.logger.debug(f"Service {service} already enabled")
 
         if start:
-            self.run(f"systemctl start {service}", check=True)
-            self.started_services.append(service)
-            self.rollback_manager.add_service_stop(service)
+            # Check if already running
+            if not self.is_service_active(service):
+                self.run(f"systemctl start {service}", check=True)
+                self.started_services.append(service)
+                self.rollback_manager.add_service_stop(service)
+            else:
+                self.logger.debug(f"Service {service} already running")
 
         return True
 
@@ -459,6 +594,20 @@ Try these steps:
         # Always run check commands (read-only)
         result = self.run(f"systemctl is-active {service}", check=False, force_execute=True)
         return result.stdout.strip() == "active"
+
+    def is_service_enabled(self, service: str) -> bool:
+        """
+        Check if a systemd service is enabled.
+
+        Args:
+            service: Service name
+
+        Returns:
+            True if service is enabled
+        """
+        # Always run check commands (read-only)
+        result = self.run(f"systemctl is-enabled {service}", check=False, force_execute=True)
+        return result.stdout.strip() == "enabled"
 
     def command_exists(self, command: str) -> bool:
         """

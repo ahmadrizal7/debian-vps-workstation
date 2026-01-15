@@ -100,12 +100,26 @@ class DockerModule(ConfigurationModule):
         self.logger.info("Adding Docker repository with security verification...")
 
         # Initialize supply chain validator
-        validator = SupplyChainValidator(self.config.data, self.logger)
+
+        # Initialize supply chain validator
+        validator = SupplyChainValidator(self.config, self.logger)
 
         # Get expected fingerprint from checksums database
-        docker_key = validator.checksums.get("apt_keys", {}).get("docker", {})
-        expected_fingerprint = docker_key.get("fingerprint")
-        key_url = docker_key.get("url") or "https://download.docker.com/linux/debian/gpg"
+        # Defensive coding to prevent NameError
+        key_url = "https://download.docker.com/linux/debian/gpg"
+        expected_fingerprint = None
+
+        try:
+            checksums = validator.checksums or {}
+            apt_keys = checksums.get("apt_keys", {}) or {}
+            docker_key = apt_keys.get("docker", {}) or {}
+            expected_fingerprint = docker_key.get("fingerprint")
+            if docker_key.get("url"):
+                key_url = docker_key.get("url")
+        except Exception as e:
+            self.logger.warning(f"Failed to load checksums: {e}")
+
+        self.logger.info(f"Using Docker GPG key URL: {key_url}")
 
         # Remove conflicting docker.list if it exists (legacy)
         if os.path.exists("/etc/apt/sources.list.d/docker.list"):
@@ -118,24 +132,7 @@ class DockerModule(ConfigurationModule):
         # Create keyrings directory
         self.run("install -m 0755 -d /etc/apt/keyrings", check=True)
 
-        # Verify fingerprint before downloading if available
-        if expected_fingerprint and not self.dry_run:
-            try:
-                self.logger.info("Verifying Docker GPG key fingerprint...")
-                validator.verify_apt_key_fingerprint(key_url, expected_fingerprint)
-                self.logger.info("\u2713 Docker GPG key fingerprint verified")
-            except SecurityError as e:
-                self.logger.error(f"Docker GPG key verification failed: {e}")
-                if validator.strict_mode:
-                    raise
-                self.logger.warning("Proceeding without verification (not in strict mode)")
-        elif not expected_fingerprint:
-            self.logger.warning(
-                "\u26a0\ufe0f  No fingerprint available for Docker GPG key - SECURITY RISK\\n"
-                "\u26a0\ufe0f  Consider updating configurator/security/checksums.yaml"
-            )
-
-        # Download Docker's GPG key
+        # Download Docker's GPG key first
         self.run(
             f"curl -fsSL {key_url} -o /etc/apt/keyrings/docker.asc",
             check=True,
@@ -143,6 +140,27 @@ class DockerModule(ConfigurationModule):
 
         # Make key readable
         self.run("chmod a+r /etc/apt/keyrings/docker.asc", check=True)
+
+        # Verify fingerprint after downloading
+        if expected_fingerprint and not self.dry_run:
+            try:
+                self.logger.info("Verifying Docker GPG key fingerprint...")
+                validator.verify_apt_key_fingerprint(
+                    "/etc/apt/keyrings/docker.asc",  # Use local file path instead of URL
+                    expected_fingerprint,
+                    is_local_file=True,
+                )
+                self.logger.info("✓ Docker GPG key fingerprint verified")
+            except SecurityError as e:
+                self.logger.error(f"Docker GPG key verification failed: {e}")
+                if validator.strict_mode:
+                    raise
+                self.logger.warning("Proceeding without verification (not in strict mode)")
+        elif not expected_fingerprint:
+            self.logger.warning(
+                "⚠️  No fingerprint available for Docker GPG key - SECURITY RISK\n"
+                "⚠️  Consider updating configurator/security/checksums.yaml"
+            )
 
         # Get architecture
         result = self.run("dpkg --print-architecture", check=True)
@@ -158,9 +176,7 @@ class DockerModule(ConfigurationModule):
         # Docker repo might not have trixie yet, allow fallback or force bookworm if needed
         # For now, we'll use bookworm if it's trixie or sid, as they are often compatible
         if codename in ["trixie", "sid"]:
-            self.logger.warning(
-                f"Docker repo might not support {codename}, using 'bookworm' instead."
-            )
+            self.logger.info(f"Docker repo might not support {codename}, using 'bookworm' instead.")
             codename = "bookworm"
 
         # Use docker.sources (deb822 format) as per official docs

@@ -1,0 +1,143 @@
+---
+description: Database best practices for SQLite and activity monitoring. Apply these rules when working with database operations.
+globs: **/*db*.py, **/database*.py, configurator/users/activity*.py
+---
+
+# Database Best Practices (SQLite)
+
+## SQLite Setup
+- Use proper connection management with context managers
+- Use connection pooling when appropriate
+- Configure WAL mode for better concurrency: `PRAGMA journal_mode=WAL`
+- Set appropriate timeout: `PRAGMA busy_timeout=30000`
+- Use proper connection string or file path
+
+## Database Design
+- Use proper normalization (avoid redundant data)
+- Implement proper indexing on frequently queried columns
+- Use proper data types (TEXT, INTEGER, REAL, BLOB, NULL)
+- Define proper constraints (PRIMARY KEY, FOREIGN KEY, UNIQUE, NOT NULL)
+- Use proper table naming conventions (snake_case)
+
+## Connection Management
+- Always use context managers for connections
+- Close connections properly
+- Handle connection errors gracefully
+- Use connection pooling for high-concurrency scenarios
+- Implement retry logic for transient failures
+
+## Query Optimization
+- Use parameterized queries (prevent SQL injection)
+- Use proper indexes on WHERE, JOIN, and ORDER BY columns
+- Avoid SELECT * (select only needed columns)
+- Use LIMIT for pagination
+- Use EXPLAIN QUERY PLAN to analyze queries
+- Batch operations when possible
+
+## Transactions
+- Use transactions for multi-step operations
+- Commit transactions explicitly
+- Rollback on errors
+- Keep transactions short
+- Use savepoints for nested transactions if needed
+
+## Activity Monitoring Database
+- Store audit logs with timestamps
+- Include user identification
+- Store action types and details
+- Implement proper retention policies
+- Use proper indexing for time-based queries
+- Consider partitioning for large datasets
+
+## Security
+- Never use string formatting for SQL queries (use parameterized queries)
+- Validate all inputs before database operations
+- Use proper access controls
+- Encrypt sensitive data at rest if needed
+- Implement proper backup strategies
+- Log database access for security auditing
+
+## Error Handling
+- Handle database errors gracefully
+- Provide meaningful error messages
+- Log database errors appropriately
+- Implement retry logic for transient failures
+- Handle connection timeouts properly
+
+## Migrations
+- Use versioned schema migrations
+- Test migrations on sample data
+- Provide rollback scripts
+- Document schema changes
+- Keep migrations small and focused
+
+## Performance
+- Use proper indexing strategies
+- Monitor query performance
+- Use connection pooling
+- Implement query result caching when appropriate
+- Optimize for read-heavy vs write-heavy workloads
+- Use EXPLAIN QUERY PLAN to identify bottlenecks
+
+## Best Practices
+- Use ORM or query builder for complex queries
+- Keep database logic in dedicated modules
+- Use type hints for database models
+- Document schema and relationships
+- Implement proper logging for database operations
+- Test database operations with proper fixtures
+- Use transactions for data consistency
+
+## Example Patterns
+
+### Connection Management
+```python
+import sqlite3
+from contextlib import contextmanager
+
+@contextmanager
+def get_db_connection(db_path: str):
+    """Get database connection with proper cleanup."""
+    conn = sqlite3.connect(db_path, timeout=30.0)
+    conn.execute("PRAGMA journal_mode=WAL")
+    try:
+        yield conn
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+```
+
+### Parameterized Queries
+```python
+# Good: Parameterized query
+cursor.execute(
+    "SELECT * FROM users WHERE username = ? AND active = ?",
+    (username, True)
+)
+
+# Bad: String formatting (SQL injection risk)
+cursor.execute(f"SELECT * FROM users WHERE username = '{username}'")
+```
+
+### Transaction Pattern
+```python
+with get_db_connection(db_path) as conn:
+    cursor = conn.cursor()
+    try:
+        cursor.execute("INSERT INTO activities ...")
+        cursor.execute("UPDATE user_stats ...")
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+```
+
+## Activity Monitoring Specific
+- Store activity logs with structured data (JSON for details)
+- Index on timestamp, user_id, and activity_type
+- Implement retention policies (e.g., 7 years for compliance)
+- Use separate tables for different activity types if needed
+- Consider archiving old data

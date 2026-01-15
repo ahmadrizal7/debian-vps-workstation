@@ -1,0 +1,149 @@
+---
+description: Pytest best practices and patterns for Python testing. Apply these rules when writing or reviewing tests.
+globs: tests/**/*.py, **/test_*.py, **/*_test.py
+---
+
+# Pytest Best Practices
+
+## Test Structure
+- Place all tests in `tests/` directory
+- Organize tests by type: `unit/`, `integration/`, `e2e/`, `security/`, `performance/`
+- Use descriptive test file names: `test_<module_name>.py`
+- Use descriptive test class names: `Test<ClassName>`
+- Use descriptive test function names: `test_<what_is_being_tested>`
+
+## Test Organization
+- Group related tests in classes
+- Use `conftest.py` for shared fixtures
+- Use pytest markers to categorize tests:
+  - `@pytest.mark.unit` - Fast, isolated unit tests
+  - `@pytest.mark.integration` - Integration tests with dependencies
+  - `@pytest.mark.slow` - Slow running tests
+  - `@pytest.mark.destructive` - Tests that modify system state
+  - `@pytest.mark.security` - Security-focused tests
+
+## Test Writing
+- Follow AAA pattern: Arrange, Act, Assert
+- Write clear, descriptive test names that explain what is being tested
+- One assertion per test when possible (or related assertions)
+- Test both success and failure cases
+- Test edge cases (empty inputs, None values, boundary conditions)
+- Use docstrings to explain complex test scenarios
+
+## Fixtures
+- Use fixtures for test setup and teardown
+- Place shared fixtures in `conftest.py`
+- Use `tmp_path` for temporary files
+- Use `monkeypatch` for mocking system calls
+- Use `pytest-mock` for mocking functions and classes
+- Clean up resources in fixture teardown
+
+## Mocking
+- Mock external dependencies (file system, network, subprocess)
+- Use `unittest.mock` or `pytest-mock` for mocking
+- Mock at the appropriate level (unit tests should mock dependencies)
+- Use `@pytest.fixture` with `monkeypatch` for system-level mocks
+- Verify mock calls when behavior is important
+
+## Test Data
+- Use fixtures for test data
+- Create minimal test data that exercises the code
+- Use factories or builders for complex test objects
+- Avoid hard-coded test data when possible
+
+## Assertions
+- Use descriptive assertion messages
+- Use appropriate assertion methods:
+  - `assert` for simple checks
+  - `pytest.raises()` for exception testing
+  - `pytest.approx()` for floating point comparisons
+- Assert on behavior, not implementation details
+
+## Exception Testing
+- Test that exceptions are raised when expected
+- Test exception messages when relevant
+- Use `pytest.raises()` context manager:
+```python
+with pytest.raises(ValueError, match="expected message"):
+    function_that_raises()
+```
+
+## Parametrized Tests
+- Use `@pytest.mark.parametrize` for testing multiple inputs
+- Group related parametrized tests together
+- Use descriptive parameter names
+
+## Test Coverage
+- Aim for high coverage of critical paths
+- Focus on business logic and error handling
+- Don't test implementation details unnecessarily
+- Use `pytest-cov` for coverage reporting
+
+## Performance
+- Mark slow tests with `@pytest.mark.slow`
+- Use `pytest-xdist` for parallel test execution when appropriate
+- Avoid unnecessary setup/teardown in fast tests
+
+## Best Practices
+- Keep tests independent (no test should depend on another)
+- Tests should be deterministic (same input = same output)
+- Tests should be fast (unit tests should run in milliseconds)
+- Use meaningful test data (not just random values)
+- Clean up after tests (fixtures handle this automatically)
+- Don't test third-party libraries (only test your code)
+
+## Example Test Structure
+```python
+"""
+Unit tests for ConfigManager.
+"""
+
+import pytest
+from configurator.config import ConfigManager
+from configurator.exceptions import ConfigurationError
+
+
+class TestConfigManager:
+    """Tests for ConfigManager."""
+
+    def test_default_values(self):
+        """Test that default values are loaded correctly."""
+        # Arrange
+        config = ConfigManager()
+
+        # Act & Assert
+        assert config.get("system.hostname") == "dev-workstation"
+        assert config.get("security.enabled") is True
+
+    def test_get_with_default(self):
+        """Test getting non-existent key returns default."""
+        # Arrange
+        config = ConfigManager()
+
+        # Act & Assert
+        assert config.get("nonexistent.key") is None
+        assert config.get("nonexistent.key", "default") == "default"
+
+    def test_invalid_config_raises_error(self):
+        """Test that invalid configuration raises ConfigurationError."""
+        # Arrange & Act & Assert
+        with pytest.raises(ConfigurationError, match="Invalid configuration"):
+            ConfigManager(config_file="/nonexistent/file.yaml")
+```
+
+## Type Hints in Tests
+- Add type hints to test functions when helpful
+- Import types from `typing` module
+- Use `TYPE_CHECKING` for test-only imports if needed
+
+## Integration Tests
+- Use real dependencies when testing integration
+- Mark with `@pytest.mark.integration`
+- May require system setup (use fixtures)
+- Test end-to-end workflows
+
+## Security Tests
+- Test security boundaries and access controls
+- Test input validation and sanitization
+- Test authentication and authorization
+- Mark with `@pytest.mark.security`

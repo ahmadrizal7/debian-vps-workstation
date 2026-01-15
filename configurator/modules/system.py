@@ -53,6 +53,8 @@ class SystemModule(ConfigurationModule):
         "unzip",
         "zip",
         "jq",
+        "libssl-dev",  # Required for Python/Rust compilation
+        "pkg-config",  # Required for Rust crates
     ]
 
     def validate(self) -> bool:

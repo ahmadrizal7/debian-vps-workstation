@@ -419,7 +419,7 @@ param=-localhost
             users = [u for u in pwd.getpwall() if 1000 <= u.pw_uid < 60000]
 
             if not users:
-                self.logger.warning("No regular users found to configure")
+                self.logger.info("No regular users found to configure")
                 return True
 
             xsession_content = """#!/bin/bash
@@ -552,7 +552,7 @@ exec startxfce4
             users = [u for u in pwd.getpwall() if 1000 <= u.pw_uid < 60000]
 
             if not users:
-                self.logger.warning("No regular users found for compositor configuration")
+                self.logger.info("No regular users found for compositor configuration")
                 return True
 
             # Generate compositor config
@@ -1463,11 +1463,11 @@ ResultActive=yes
 
             users = [u for u in pwd.getpwall() if 1000 <= u.pw_uid < 60000]
             if not users:
-                self.logger.warning("No regular users found for Oh My Zsh installation")
+                self.logger.info("No regular users found for Oh My Zsh installation")
                 return True
 
             # Initialize secure downloader
-            validator = SupplyChainValidator(self.config.data, self.logger)
+            validator = SupplyChainValidator(self.config, self.logger)
             downloader = SecureDownloader(validator, self.logger)
 
             # Get checksum from database
@@ -1565,7 +1565,7 @@ ResultActive=yes
             users = [u for u in pwd.getpwall() if 1000 <= u.pw_uid < 60000]
 
             # Initialize secure downloader
-            validator = SupplyChainValidator(self.config.data, self.logger)
+            validator = SupplyChainValidator(self.config, self.logger)
             downloader = SecureDownloader(validator, self.logger)
 
             # Get pinned commit from database
@@ -2725,6 +2725,10 @@ function extract() {
             import pwd
 
             users = [u for u in pwd.getpwall() if 1000 <= u.pw_uid < 60000]
+
+            if not users:
+                self.logger.info("No regular users found for terminal tools configuration")
+                return True
 
             # Generate aliases and configs
             tool_config = self._setup_tool_aliases()

@@ -108,8 +108,19 @@ Phase 2 Advanced Security:
         return checks_passed
 
     def _setup_ufw(self):
-        """Setup UFW firewall."""
+        """Setup UFW firewall with safety checks."""
         self.logger.info("Setting up UFW firewall...")
+
+        # Detect current SSH connection port
+        ssh_connection = os.getenv("SSH_CONNECTION", "")
+        current_ssh_port = 22  # default
+
+        if ssh_connection:
+            # SSH_CONNECTION format: "client_ip client_port server_ip server_port"
+            parts = ssh_connection.split()
+            if len(parts) >= 4:
+                current_ssh_port = int(parts[3])
+                self.logger.info(f"  Detected SSH connection on port {current_ssh_port}")
 
         # Install UFW
         self.install_packages(["ufw"])
@@ -122,14 +133,32 @@ Phase 2 Advanced Security:
         self.run("ufw default allow outgoing", check=True)
 
         # Allow SSH with rate limiting
-        ssh_port = self.get_config("ufw.ssh_port", 22)
-        if self.get_config("ufw.ssh_rate_limit", True):
-            self.run(f"ufw limit {ssh_port}/tcp comment 'SSH'", check=True)
+        ssh_port = self.get_config("ufw.ssh_port", current_ssh_port)
+
+        # Safety: Always allow current SSH port if we're in remote session
+        if ssh_connection and current_ssh_port != ssh_port:
+            self.logger.warning(
+                f"  Config specifies port {ssh_port}, but you're connected on {current_ssh_port}"
+            )
+            self.logger.warning("  Will allow BOTH ports to preserve access")
+            # Allow both ports
+            self.run(f"ufw limit {current_ssh_port}/tcp comment 'SSH (current)'", check=True)
+            self.run(f"ufw limit {ssh_port}/tcp comment 'SSH (config)'", check=True)
         else:
-            self.run(f"ufw allow {ssh_port}/tcp comment 'SSH'", check=True)
+            # Normal case - allow configured port
+            if self.get_config("ufw.ssh_rate_limit", True):
+                self.run(f"ufw limit {ssh_port}/tcp comment 'SSH'", check=True)
+            else:
+                self.run(f"ufw allow {ssh_port}/tcp comment 'SSH'", check=True)
 
         # Allow RDP for xrdp
         self.run("ufw allow 3389/tcp comment 'RDP'", check=True)
+
+        # Allow additional ports from config
+        additional_ports = self.get_config("ufw.additional_ports", [])
+        for port_spec in additional_ports:
+            self.logger.info(f"  Allowing additional port: {port_spec}")
+            self.run(f"ufw allow {port_spec}", check=True)
 
         # Enable UFW
         self.run("ufw --force enable", check=True)
@@ -206,15 +235,38 @@ bantime = {ban_time}
         self.logger.info(f"  Max retries: {max_retry}, Ban time: {ban_time}s")
 
     def _harden_ssh(self):
-        """Harden SSH configuration."""
+        """Harden SSH configuration with safety checks."""
         self.logger.info("Hardening SSH configuration...")
 
         sshd_config_path = "/etc/ssh/sshd_config"
         backup_file(sshd_config_path)
 
+        # Detect current SSH connection to preserve access
+        current_user = os.getenv("USER", "root")
+        ssh_connection = os.getenv("SSH_CONNECTION", "")
+        is_remote_session = bool(ssh_connection)
+
+        if is_remote_session:
+            self.logger.info(f"  Detected remote SSH session for user '{current_user}'")
+            self.logger.info("  Will preserve current authentication method")
+
         # Create hardened SSH config
-        disable_root_password = self.get_config("ssh.disable_root_password", True)
+        # SAFE DEFAULTS: Never disable current access method during installation
+        disable_root_password = self.get_config("ssh.disable_root_password", False)
         disable_password_auth = self.get_config("ssh.disable_password_auth", False)
+
+        # Safety: If we're in a remote session as root with password, don't disable it
+        if is_remote_session and current_user == "root":
+            if disable_root_password:
+                self.logger.warning(
+                    "  Skipping root password disable - would lock out current session"
+                )
+                disable_root_password = False
+            if disable_password_auth:
+                self.logger.warning(
+                    "  Skipping password auth disable - would lock out current session"
+                )
+                disable_password_auth = False
 
         # Read current config
         with open(sshd_config_path, "r") as f:
@@ -239,25 +291,36 @@ ClientAliveInterval 300
 ClientAliveCountMax 2
 
 # Max authentication attempts
-MaxAuthTries 3
+MaxAuthTries 6
 
-# Disable TCP forwarding (optional, can be enabled if needed)
-AllowTcpForwarding no
+# Allow TCP forwarding (needed for SSH tunnels)
+AllowTcpForwarding yes
 
 # Logging
-LogLevel VERBOSE
+LogLevel INFO
 """
 
+        # Explicitly set root login and password auth (always show current state)
         if disable_root_password:
             hardening_block += """
 # Disable root login with password (key only)
 PermitRootLogin prohibit-password
+"""
+        else:
+            hardening_block += """
+# Allow root login with password (ENABLED for easier server management)
+PermitRootLogin yes
 """
 
         if disable_password_auth:
             hardening_block += """
 # Disable password authentication entirely (SSH keys only)
 PasswordAuthentication no
+"""
+        else:
+            hardening_block += """
+# Allow password authentication (ENABLED for easier access)
+PasswordAuthentication yes
 """
 
         hardening_block += "\n# === End SSH Hardening ===\n"
@@ -273,14 +336,32 @@ PasswordAuthentication no
         if not result.success:
             self.logger.error("SSH configuration test failed!")
             self.logger.error(result.stderr)
+            # Restore backup
+            self.run(f"cp {sshd_config_path}.bak {sshd_config_path}", check=False)
             raise ModuleExecutionError(
                 what="SSH configuration is invalid",
                 why=result.stderr,
-                how="Check /etc/ssh/sshd_config for syntax errors",
+                how="Config restored from backup. Check /etc/ssh/sshd_config for syntax errors",
             )
 
-        # Restart SSH
-        self.restart_service("sshd")
+        # Safe SSH restart with connection preservation
+        restart_ssh = self.get_config("ssh.restart_service", True)
+
+        if restart_ssh:
+            if is_remote_session:
+                self.logger.info("  ⚠️  Restarting SSH (current connection will be preserved)")
+                # Use reload instead of restart to preserve connections
+                reload_result = self.run("systemctl reload sshd", check=False)
+                if not reload_result.success:
+                    # Fallback to restart if reload fails
+                    self.logger.debug("  Reload failed, trying restart...")
+                    self.restart_service("sshd")
+            else:
+                # Not remote, safe to restart normally
+                self.restart_service("sshd")
+        else:
+            self.logger.info("  SSH restart skipped (config: ssh.restart_service=false)")
+            self.logger.info("  Run 'systemctl reload sshd' manually to apply changes")
 
         self.logger.info("✓ SSH hardened")
 
@@ -390,15 +471,15 @@ APT::Periodic::AutocleanInterval "7";
     def _setup_cis_scanner(self):
         """Setup CIS Benchmark Scanner."""
         try:
-            from configurator.security.cis_scanner import CISScanner
+            from configurator.security.cis_scanner import CISBenchmarkScanner
 
-            scanner = CISScanner(self.config, self.logger)
+            scanner = CISBenchmarkScanner(self.logger)
 
             # Run initial scan
             scan_on_install = self.get_config("security_advanced.cis_scanner.scan_on_install", True)
             if scan_on_install:
                 self.logger.info("Running initial CIS compliance scan...")
-                scanner.run_scan()
+                scanner.scan()
 
             # Setup cron job for scheduled scans
             schedule = self.get_config("security_advanced.cis_scanner.scan_schedule", "weekly")

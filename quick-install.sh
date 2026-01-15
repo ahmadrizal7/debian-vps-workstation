@@ -271,10 +271,10 @@ install_system_deps() {
     backup_state "before_system_deps"
 
     print_info "Updating package list..."
-    sudo apt-get update -qq
+    sudo apt-get update
 
     print_info "Installing required packages..."
-    sudo apt-get install -y -qq \
+    sudo apt-get install -y \
         python3-pip \
         python3-venv \
         python3-dev \
@@ -348,25 +348,25 @@ install_python_deps() {
         # Skip pip upgrade - system pip is managed by Debian
         # Use --ignore-installed to avoid conflicts with Debian packages
         print_info "Installing setuptools and wheel..."
-        pip3 install setuptools wheel -q --break-system-packages --ignore-installed 2>/dev/null || true
+        pip3 install setuptools wheel --break-system-packages --ignore-installed 2>/dev/null || true
 
         print_info "Installing project dependencies..."
-        pip3 install -r requirements.txt -q --break-system-packages --ignore-installed
+        pip3 install -r requirements.txt --break-system-packages --ignore-installed
 
         print_info "Installing project in development mode..."
-        pip3 install -e . -q --break-system-packages --ignore-installed
+        pip3 install -e . --break-system-packages --ignore-installed
     else
         print_info "Activating virtual environment..."
         source venv/bin/activate
 
         print_info "Upgrading pip..."
-        pip install --upgrade pip setuptools wheel -q
+        pip install --upgrade pip setuptools wheel
 
         print_info "Installing project dependencies..."
-        pip install -r requirements.txt -q
+        pip install -r requirements.txt
 
         print_info "Installing project in development mode..."
-        pip install -e . -q
+        pip install -e .
     fi
 
     print_success "Python dependencies installed"
@@ -459,7 +459,7 @@ show_next_steps() {
 
 # Main execution
 main() {
-    clear
+
 
     cat << "EOF"
 ╔═══════════════════════════════════════════════════════════╗

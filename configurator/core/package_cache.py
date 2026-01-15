@@ -145,7 +145,7 @@ class PackageCacheManager:
             self.logger.info(f"Loaded cache index: {len(self._index)} packages")
 
         except Exception as e:
-            self.logger.error(f"Failed to load cache index: {e}")
+            self.logger.warning(f"Failed to load cache index, starting fresh: {e}")
             self._index = {}
 
     def _save_index(self) -> None:
@@ -177,7 +177,7 @@ class PackageCacheManager:
             with open(stats_file, "r") as f:
                 return json.load(f)
         except Exception as e:
-            self.logger.error(f"Failed to load stats: {e}")
+            self.logger.warning(f"Failed to load stats, resetting: {e}")
             return {}
 
     def _save_stats(self) -> None:

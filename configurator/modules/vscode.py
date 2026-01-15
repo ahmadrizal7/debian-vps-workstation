@@ -81,10 +81,14 @@ class VSCodeModule(ConfigurationModule):
 
         import os
 
-        # Cleanup potential conflicting file from previous configs
-        if os.path.exists("/etc/apt/sources.list.d/vscode.sources"):
-            self.logger.info("Removing conflicting vscode.sources file...")
-            os.remove("/etc/apt/sources.list.d/vscode.sources")
+        # Cleanup potential conflicting files from previous configs
+        for conflicting_file in [
+            "/etc/apt/sources.list.d/vscode.sources",
+            "/etc/apt/sources.list.d/vscode.list",
+        ]:
+            if os.path.exists(conflicting_file):
+                self.logger.info(f"Removing conflicting file {conflicting_file}...")
+                os.remove(conflicting_file)
 
         # Download and install GPG key
         self.run(
