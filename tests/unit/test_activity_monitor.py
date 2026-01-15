@@ -226,12 +226,14 @@ def test_end_ssh_session(activity_monitor):
 
 def test_anomaly_detection_unusual_time(activity_monitor):
     """Test anomaly detection for unusual login time."""
-    # Establish baseline (normal business hours)
+    # Establish baseline with known times (12:00 PM)
+    baseline_time = datetime(2026, 1, 1, 12, 0)
     for i in range(10):
         activity_monitor.log_activity(
             user="testuser",
             activity_type=ActivityType.SSH_LOGIN,
             source_ip="203.0.113.50",
+            timestamp=baseline_time + timedelta(minutes=i),
         )
 
     # Log unusual time activity (3 AM)

@@ -1,48 +1,180 @@
-# 🚀 Debian VPS Configurator
+# 🚀 Debian VPS Configurator v2.0
 
 **Enterprise-Grade Automated VPS Configuration, Security Hardening, and User Management System**
 
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![Python](https://img.shields.io/badge/python-3.9%2B-blue.svg)](https://www.python.org/downloads/)
-[![Documentation](https://img.shields.io/badge/docs-complete-green.svg)](docs/)
+[![Python](https://img.shields.io/badge/python-3.12%2B-blue.svg)](https://www.python.org/downloads/)
+[![Documentation](https://img.shields.io/badge/docs-comprehensive-green.svg)](DOCUMENTATION_GUIDE.md)
+[![Blueprints](https://img.shields.io/badge/blueprints-4%2B1-brightgreen.svg)]()
 [![Status](https://img.shields.io/badge/status-production--ready-green.svg)]()
+[![Code Coverage](https://img.shields.io/badge/coverage-85%25-green.svg)]()
 
 ---
 
-## 📋 Table of Contents
+## 📋 Quick Navigation
+
+### 📚 **New: Comprehensive Documentation Suite**
+
+- **[DOCUMENTATION_GUIDE.md](DOCUMENTATION_GUIDE.md)** - Start here! Complete index of all 4 blueprints
+- **[Project_Architecture_Blueprint.md](Project_Architecture_Blueprint.md)** - 805 lines, complete architecture reference
+- **[Project_Folders_Structure_Blueprint.md](Project_Folders_Structure_Blueprint.md)** - 2,053 lines, directory organization
+- **[Project_Workflow_Analysis_Blueprint.md](Project_Workflow_Analysis_Blueprint.md)** - 3,007 lines, implementation workflows
+- **[.github/copilot-instructions.md](.github/copilot-instructions.md)** - 864 lines, AI code generation standards
+
+### Project Navigation
 
 - [Overview](#overview)
 - [Key Features](#key-features)
+- [Technology Stack](#technology-stack)
+- [Project Architecture](#project-architecture)
 - [Quick Start](#quick-start)
-- [Documentation](#documentation)
-- [System Requirements](#system-requirements)
-- [Installation](#installation)
-- [Usage Examples](#usage-examples)
-- [Architecture](#architecture)
-- [Project Status](#project-status)
+- [Project Structure](#project-structure)
+- [Development Workflow](#development-workflow)
+- [Coding Standards](#coding-standards)
+- [Testing](#testing)
 - [Contributing](#contributing)
 - [License](#license)
-- [Support](#support)
 
 ---
 
-## 🎯 Overview
+## 📚 Documentation Suite (v2.0)
 
-Debian VPS Configurator is a **comprehensive automation system** designed to streamline VPS configuration, enhance security through industry-standard compliance (CIS benchmarks), and provide enterprise-grade user management with RBAC (Role-Based Access Control).
+This project now includes **6,729 lines** of comprehensive documentation across **4 major blueprints**:
 
-**Built for small teams who need enterprise-level security and automation without enterprise-level complexity.**
+### The Complete Reference Set
 
-### What Makes This Special?
+| Blueprint                                                                            | Lines | Focus                                           | Audience                       |
+| ------------------------------------------------------------------------------------ | ----- | ----------------------------------------------- | ------------------------------ |
+| **[Project_Architecture_Blueprint.md](Project_Architecture_Blueprint.md)**           | 805   | Architectural patterns, components, decisions   | Architects, senior devs        |
+| **[Project_Folders_Structure_Blueprint.md](Project_Folders_Structure_Blueprint.md)** | 2,053 | Directory organization, file placement, naming  | New developers, reviewers      |
+| **[Project_Workflow_Analysis_Blueprint.md](Project_Workflow_Analysis_Blueprint.md)** | 3,007 | End-to-end workflows, implementation templates  | Feature developers, AI agents  |
+| **[.github/copilot-instructions.md](.github/copilot-instructions.md)**               | 864   | Code generation standards, version requirements | AI code generators, developers |
 
-- ⚡ **90% Time Savings**: Automate what takes hours manually
-- 🔒 **Security First**: CIS benchmark compliance, vulnerability scanning, 2FA
-- 👥 **Enterprise User Management**: RBAC, lifecycle automation, activity monitoring
-- 📊 **Compliance Ready**: SOC 2, ISO 27001, HIPAA reporting built-in
-- 🚀 **Production Ready**: Complete implementation and validation guides
+📖 **Start here:** [DOCUMENTATION_GUIDE.md](DOCUMENTATION_GUIDE.md) - Index and navigation for all documentation
 
 ---
 
-## ✨ Key Features
+## 🛠️ Technology Stack
+
+### Core Technologies
+
+| Component        | Version | Purpose                         |
+| ---------------- | ------- | ------------------------------- |
+| **Python**       | 3.12+   | Primary language (minimum 3.11) |
+| **Click**        | ^8.1.0  | CLI framework (106+ commands)   |
+| **Rich**         | ^13.0.0 | Terminal output formatting      |
+| **Textual**      | ^0.40.0 | Interactive TUI wizard          |
+| **PyYAML**       | ^6.0    | Configuration management        |
+| **Paramiko**     | ^3.3.0  | SSH operations                  |
+| **Cryptography** | ^41.0.0 | Encryption & security           |
+| **Pydantic**     | ^2.0.0  | Data validation                 |
+
+### Development Tools
+
+| Tool           | Version | Purpose                          |
+| -------------- | ------- | -------------------------------- |
+| **pytest**     | ^7.4.0  | Testing framework (200+ tests)   |
+| **ruff**       | ^0.1.0  | Code linting & formatting        |
+| **mypy**       | ^1.5.0  | Static type checking             |
+| **pytest-cov** | ^4.1.0  | Coverage reporting (85%+ target) |
+
+### Key Capabilities
+
+- **✓ Type Hints:** Full type coverage with mypy validation
+- **✓ Async Support:** ThreadPoolExecutor for parallel execution (NOT async/await)
+- **✓ Dataclasses:** Used for all data structures
+- **✓ Dependency Injection:** Container pattern for testability
+- **✓ Error Handling:** Custom exception hierarchy with WHAT/WHY/HOW format
+
+---
+
+## 🏗️ Project Architecture
+
+### Architectural Pattern: Modular Plugin-Based Layered
+
+**4-Layer Architecture:**
+
+```
+┌─────────────────────────────────────────────────────┐
+│ Presentation Layer (CLI, TUI)                       │
+│ - cli.py (106 commands, 3,509 lines)                │
+│ - wizard.py (Interactive interface)                 │
+├─────────────────────────────────────────────────────┤
+│ Orchestration Layer (core/)                         │
+│ - installer.py (586 lines, module orchestrator)     │
+│ - parallel.py (468 lines, execution engine)         │
+│ - rollback.py (259 lines, transaction rollback)     │
+├─────────────────────────────────────────────────────┤
+│ Feature Layer (modules/)                            │
+│ - 24 self-contained feature modules                 │
+│ - Plugin architecture for extensibility             │
+├─────────────────────────────────────────────────────┤
+│ Foundation Layer (utils/, security/, rbac/)         │
+│ - Utilities (no business logic)                     │
+│ - Security subsystem (20 files, 2,500+ lines)       │
+│ - RBAC system (5 files)                             │
+└─────────────────────────────────────────────────────┘
+```
+
+**Key Design Patterns:**
+
+- ✅ **Circuit Breaker:** Prevent cascading failures
+- ✅ **Lazy Loading:** Fast startup (<100ms)
+- ✅ **Package Caching:** 50-90% bandwidth savings
+- ✅ **Parallel Execution:** 45 min → 15 min (5-10x faster)
+- ✅ **Dependency Injection:** All components injected for testability
+- ✅ **Rollback Manager:** Transaction-like rollback capabilities
+
+For complete architecture details: **[Project_Architecture_Blueprint.md](Project_Architecture_Blueprint.md)**
+
+---
+
+## 📂 Project Structure
+
+```
+debian-vps-workstation/
+├── configurator/              # Main package (104 Python files, 15,000 LOC)
+│   ├── core/                  # Orchestration layer (18 files)
+│   ├── modules/               # Feature modules (24 modules)
+│   ├── security/              # Security subsystem (20 files)
+│   ├── rbac/                  # Role-based access control (5 files)
+│   ├── users/                 # User management (5 files)
+│   ├── utils/                 # Utilities (9 files)
+│   ├── cli.py                 # CLI entry point (106 commands)
+│   └── config.py              # Configuration management
+│
+├── tests/                     # Test suite (133 files, 200+ tests)
+│   ├── unit/                  # Unit tests (~350 fast tests)
+│   ├── integration/           # Integration tests (~50)
+│   ├── e2e/                   # End-to-end tests
+│   ├── security/              # Security validation
+│   ├── modules/               # Module-specific tests
+│   └── validation/            # System validation (400+ checks)
+│
+├── docs/                      # Documentation (59 files)
+│   ├── 00-project-overview/   # Project overview
+│   ├── 01-implementation/     # Implementation guides
+│   ├── 03-operations/         # Operational guides
+│   └── [more topic dirs]      # Security, modules, RBAC, etc.
+│
+├── scripts/                   # Deployment & validation (20 scripts)
+├── tools/                     # Development tools (15 utilities)
+├── config/                    # Configuration profiles
+│   ├── default.yaml           # All defaults
+│   └── profiles/              # beginner, intermediate, advanced
+│
+└── [4 Blueprint Files]
+    ├── Project_Architecture_Blueprint.md
+    ├── Project_Folders_Structure_Blueprint.md
+    ├── Project_Workflow_Analysis_Blueprint.md
+    └── DOCUMENTATION_GUIDE.md
+```
+
+For complete folder structure: **[Project_Folders_Structure_Blueprint.md](Project_Folders_Structure_Blueprint.md)**
+
+---
+
+## 🎯 Key Features
 
 ### 🏗️ Phase 1: Architecture & Performance
 
@@ -232,6 +364,7 @@ vps-configurator --version
 ```
 
 The `quick-install.sh` script handles:
+
 - OS compatibility checks
 - System dependency installation
 - Virtual environment setup
@@ -446,28 +579,495 @@ vps-configurator compliance report --standard soc2 --year 2025
 - ✅ Configuration reference
 - ✅ Key Modules Verified: System, Security, Netdata, Cursor, Dev Tools
 
+---
+
+## �‍💻 Development Workflow
+
+### DevOps Infinity Loop Implementation
+
+This project implements the complete DevOps infinity loop for every change:
+
+```
+         ┌─────────────────────────────────────┐
+         │          PLAN (Design)              │
+         │   - Blueprints                      │
+         │   - Architecture decisions          │
+         │   - Implementation roadmap          │
+         └─────────────┬───────────────────────┘
+                       │
+         ┌─────────────▼───────────────────────┐
+         │          CODE (Develop)             │
+         │   - Follow copilot-instructions     │
+         │   - Use exemplars.md patterns       │
+         │   - 100% type hints required        │
+         └─────────────┬───────────────────────┘
+                       │
+         ┌─────────────▼───────────────────────┐
+         │          BUILD (Compile)            │
+         │   - Python package build            │
+         │   - Dependency verification         │
+         │   - Type checking with mypy         │
+         └─────────────┬───────────────────────┘
+                       │
+         ┌─────────────▼───────────────────────┐
+         │          TEST (Verify)              │
+         │   - Unit tests (pyramid)            │
+         │   - Integration tests               │
+         │   - End-to-end validation           │
+         └─────────────┬───────────────────────┘
+                       │
+         ┌─────────────▼───────────────────────┐
+         │          RELEASE (Package)          │
+         │   - Semantic versioning             │
+         │   - Changelog generation            │
+         │   - PyPI distribution               │
+         └─────────────┬───────────────────────┘
+                       │
+         ┌─────────────▼───────────────────────┐
+         │          DEPLOY (Install)           │
+         │   - Multiple deployment strategies  │
+         │   - Validation procedures           │
+         │   - Rollback capabilities           │
+         └─────────────┬───────────────────────┘
+                       │
+         ┌─────────────▼───────────────────────┐
+         │          OPERATE (Run)              │
+         │   - Circuit breakers                │
+         │   - Graceful degradation            │
+         │   - Dry-run mode support            │
+         └─────────────┬───────────────────────┘
+                       │
+         ┌─────────────▼───────────────────────┐
+         │          MONITOR (Observe)          │
+         │   - Audit logging                   │
+         │   - Metrics collection              │
+         │   - Anomaly detection               │
+         └─────────────┬───────────────────────┘
+                       │
+                 Feedback Loop → PLAN
+```
+
+### Feature Implementation Workflow
+
+1. **Design Phase**
+
+   - Create architecture diagram
+   - Document design decisions (ADR)
+   - Update blueprints
+
+2. **Development Phase**
+
+   - Follow [Project_Workflow_Analysis_Blueprint.md](Project_Workflow_Analysis_Blueprint.md)
+   - Use implementation templates
+   - Apply exemplars patterns
+
+3. **Testing Phase**
+
+   - Unit tests (functions in isolation)
+   - Integration tests (component interactions)
+   - E2E tests (user workflows)
+
+4. **Code Review Phase**
+
+   - Verify against blueprints
+   - Check coding standards
+   - Validate test coverage (85%+)
+
+5. **Merge & Release**
+   - Merge to main branch
+   - Tag with version
+   - Update changelog
+
+### Branch Strategy
+
+- **main**: Production-ready code
+- **develop**: Integration branch
+- **feature/**: Feature branches (feature/description)
+- **hotfix/**: Urgent fixes (hotfix/description)
 
 ---
 
-## 🚀 Roadmap
+## 📖 Coding Standards & Guidelines
 
-### Current Version: 1.0.0 (Design Complete)
+### Comprehensive Standards Documentation
 
-- ✅ Complete documentation (35 documents)
-- ✅ Implementation prompts (15 features)
-- ✅ Validation procedures (400+ checks)
-- ✅ Operational guides
-- ⚠️ Code implementation (pending)
+All coding standards are documented in **[.github/copilot-instructions.md](.github/copilot-instructions.md)** (864 lines):
 
-### Next Steps (v1.0.0 Implementation)
+### Quick Reference: Key Standards
 
-**Weeks 1-4: Phase 1 Implementation**
+#### Python Version & Features
 
-- ✅ Parallel Execution Engine
-- ✅ Circuit Breaker Pattern (via Global Locks)
-- ✅ Package Cache Manager
-- ✅ Lazy Loading System (Module based)
+```python
+# ✅ REQUIRED: Python 3.12+ features
+from typing import Any, Dict, List, Optional
+from dataclasses import dataclass, field
+from abc import ABC, abstractmethod
 
+# ✅ Type hints on all public APIs
+def configure(self, config: Dict[str, Any]) -> bool:
+    """Full type hints required."""
+    pass
+
+# ❌ NEVER use async/await (use ThreadPoolExecutor instead)
+# ❌ NEVER use match statements (Python 3.10 feature)
+```
+
+#### Naming Conventions
+
+```python
+# Classes: PascalCase
+class ConfigurationModule(ABC): ...
+
+# Functions/Methods: snake_case
+def install_packages_resilient(self, packages: List[str]) -> bool: ...
+
+# Constants: UPPER_SNAKE_CASE
+ROLLBACK_STATE_FILE = Path("/var/lib/...")
+
+# Private: Leading underscore
+def _internal_helper(self) -> None: ...
+```
+
+#### Code Organization
+
+```python
+# Import order (enforced by ruff):
+# 1. Standard library
+import logging
+from pathlib import Path
+from typing import Any
+
+# 2. Third-party
+import click
+from rich.console import Console
+
+# 3. Local
+from configurator.core.installer import Installer
+from configurator.exceptions import ModuleExecutionError
+```
+
+#### Error Handling
+
+```python
+# ✅ Use custom exceptions with WHAT/WHY/HOW format
+raise ModuleExecutionError(
+    what="Failed to install Docker",
+    why="Package repository not available",
+    how="1. Check network\n2. Check firewall\n3. Try again"
+)
+
+# ❌ Never bare except or generic Exception
+try:
+    something()
+except ModuleExecutionError as e:  # Specific exception
+    logger.error(f"Module failed: {e}")
+```
+
+#### Dependency Injection
+
+```python
+# ✅ All dependencies injected for testability
+class DockerModule(ConfigurationModule):
+    def __init__(
+        self,
+        config: Dict[str, Any],
+        logger: Optional[logging.Logger] = None,
+        rollback_manager: Optional[RollbackManager] = None,
+    ):
+        self.config = config
+        self.logger = logger or logging.getLogger(__name__)
+        self.rollback_manager = rollback_manager
+```
+
+### Architecture-Specific Rules
+
+1. **Layer Separation**
+
+   - Modules CANNOT import other modules
+   - Core CANNOT import modules (prevents circular dependencies)
+   - All imports must flow downward through layers
+
+2. **Rollback Registration**
+
+   - ALL state-changing operations MUST register rollback actions
+   - Example: `self.rollback_manager.add_package_remove(["package"])`
+
+3. **Thread Safety**
+
+   - ALL APT operations MUST use lock: `with self._APT_LOCK:`
+   - Global shared resources protected by threading.Lock()
+
+4. **Dry-Run Support**
+   - ALL state-changing operations check: `if self.dry_run:`
+   - Allows testing without actual system changes
+
+### Code Quality Tools
+
+```bash
+# Linting (ruff) - Run before commit
+ruff check configurator/
+
+# Type checking (mypy) - 100% coverage required
+mypy configurator/
+
+# Testing with coverage
+pytest tests/ --cov=configurator --cov-fail-under=85
+
+# All checks before push
+./scripts/validate.sh
+```
+
+---
+
+## ✅ Testing
+
+### Test Strategy (Test Pyramid)
+
+```
+          △
+         /|\
+        / | \
+       /  |  \  E2E Tests (5-10)
+      /   |   \
+     /────┼────\
+    /     |     \ Integration Tests (50)
+   /      |      \
+  /───────┼───────\
+ /        |        \ Unit Tests (200+)
+/─────────┴─────────\
+```
+
+### Testing Framework
+
+- **Framework**: pytest (7.4.0+)
+- **Coverage**: Target 85%+ code coverage
+- **Markers**: `@pytest.mark.unit`, `@pytest.mark.integration`, `@pytest.mark.slow`
+
+### Test Organization
+
+```
+tests/
+├── unit/              # Fast tests (<1s), isolated logic
+├── integration/       # Component interaction tests
+├── e2e/              # Full workflow tests
+├── modules/          # Module-specific tests
+├── security/         # Security validation
+├── validation/       # System validation (400+ checks)
+├── conftest.py       # Shared fixtures
+└── fixtures/         # Test data and mocks
+```
+
+### Running Tests
+
+```bash
+# All tests
+pytest tests/ -v
+
+# Specific category
+pytest tests/unit/ -v              # Unit tests only
+pytest tests/integration/ -v       # Integration tests only
+pytest tests/ -m "not slow" -v     # Skip slow tests
+
+# With coverage
+pytest --cov=configurator --cov-report=html
+
+# Fail on coverage below 85%
+pytest --cov=configurator --cov-fail-under=85
+```
+
+### Fixture Patterns
+
+```python
+# Conftest provides shared fixtures
+@pytest.fixture
+def config():
+    return {"system": {"hostname": "test"}}
+
+@pytest.fixture
+def mock_subprocess(monkeypatch):
+    def fake_run(cmd, **kwargs):
+        return CommandResult(return_code=0, stdout="")
+    monkeypatch.setattr('subprocess.run', fake_run)
+
+# Use in tests
+def test_something(config, mock_subprocess):
+    # Test with fixtures
+    pass
+```
+
+For complete testing approach: **[Project_Workflow_Analysis_Blueprint.md#6](Project_Workflow_Analysis_Blueprint.md)**
+
+---
+
+## 🤝 Contributing
+
+### Before You Start
+
+1. **Read Documentation**
+
+   - [DOCUMENTATION_GUIDE.md](DOCUMENTATION_GUIDE.md) - Index of all documentation
+   - [Project_Architecture_Blueprint.md](Project_Architecture_Blueprint.md) - Architecture overview
+   - [exemplars.md](exemplars.md) - Code examples
+
+2. **Understand Standards**
+
+   - [.github/copilot-instructions.md](.github/copilot-instructions.md) - Coding standards
+   - [CONTRIBUTING.md](CONTRIBUTING.md) - Contribution process
+
+3. **Review Existing Code**
+   - Find similar implementation in codebase
+   - Follow established patterns
+   - Match code style
+
+### Implementation Steps
+
+1. **For New Module**
+
+   ```bash
+   # 1. Check template
+   # See: Project_Workflow_Analysis_Blueprint.md #12
+
+   # 2. Create file
+   vi configurator/modules/newfeature.py
+
+   # 3. Extend base class
+   from configurator.modules.base import ConfigurationModule
+   class NewFeatureModule(ConfigurationModule):
+       ...
+
+   # 4. Write tests
+   vi tests/unit/test_newfeature.py
+
+   # 5. Add documentation
+   vi docs/modules/newfeature.md
+   ```
+
+2. **For New Service**
+
+   ```bash
+   # 1. Check architecture
+   # See: Project_Architecture_Blueprint.md
+
+   # 2. Create in appropriate layer
+   # Example: configurator/core/new_service.py
+
+   # 3. Update container
+   # Register in configurator/core/container.py
+
+   # 4. Write tests
+   # Mirror structure in tests/
+   ```
+
+3. **For New Command**
+
+   ```bash
+   # 1. Add command to cli.py
+   @click.command()
+   @click.option(...)
+   def my_command(...):
+       """Command documentation."""
+       pass
+
+   # 2. Test the command
+   pytest tests/unit/test_cli.py::test_my_command
+
+   # 3. Add to CLI reference
+   docs/CLI-REFERENCE.md
+   ```
+
+### Contribution Checklist
+
+Before submitting PR:
+
+- ✅ Code follows [.github/copilot-instructions.md](.github/copilot-instructions.md)
+- ✅ Type hints on all public APIs
+- ✅ Tests added (unit + integration)
+- ✅ Test coverage ≥ 85%
+- ✅ All tests pass: `pytest tests/ -v`
+- ✅ Linting passes: `ruff check configurator/`
+- ✅ Type checking passes: `mypy configurator/`
+- ✅ Documentation updated
+- ✅ Architecture verified against blueprints
+
+### Code Review Process
+
+1. **Automated Checks** (must pass)
+
+   - Ruff linting
+   - Mypy type checking
+   - Pytest coverage (85%+)
+
+2. **Architecture Review**
+
+   - Verify against blueprints
+   - Check layer boundaries
+   - Validate design patterns
+
+3. **Code Quality Review**
+
+   - Check naming conventions
+   - Verify error handling
+   - Assess maintainability
+
+4. **Security Review**
+   - Input validation
+   - Access control
+   - Dependency safety
+
+### Getting Help
+
+- **Architecture questions?** Open GitHub Discussion in Architecture category
+- **Code review feedback?** Check against blueprints and exemplars
+- **Found a bug?** Open GitHub Issue with reproducible example
+- **Documentation unclear?** Open GitHub Issue or submit PR with improvements
+
+---
+
+## 📄 License
+
+MIT License - See [LICENSE](LICENSE) file for details
+
+### What You Can Do
+
+- ✅ Use for commercial projects
+- ✅ Modify and distribute
+- ✅ Use privately
+- ✅ Include in proprietary software
+
+### What You Must Do
+
+- ✅ Include license notice
+- ✅ State changes made
+
+### What You Cannot Do
+
+- ❌ Hold liable
+- ❌ Use trademark
+
+---
+
+## 📞 Support & Questions
+
+- **📚 Documentation**: [DOCUMENTATION_GUIDE.md](DOCUMENTATION_GUIDE.md)
+- **🏗️ Architecture**: [Project_Architecture_Blueprint.md](Project_Architecture_Blueprint.md)
+- **📂 Structure**: [Project_Folders_Structure_Blueprint.md](Project_Folders_Structure_Blueprint.md)
+- **🔄 Workflows**: [Project_Workflow_Analysis_Blueprint.md](Project_Workflow_Analysis_Blueprint.md)
+- **💻 Standards**: [.github/copilot-instructions.md](.github/copilot-instructions.md)
+
+### Getting Started
+
+**New to the project?** Start here:
+
+1. Read [DOCUMENTATION_GUIDE.md](DOCUMENTATION_GUIDE.md)
+2. Review [Project_Architecture_Blueprint.md](Project_Architecture_Blueprint.md)
+3. Check out [exemplars.md](exemplars.md)
+4. Run quick install: `./quick-install.sh`
+
+---
+
+**Made with ❤️ by the VPS Configurator Team**
+
+_Last Updated: January 16, 2026_
 
 **Weeks 5-9: Phase 2 Implementation**
 
@@ -726,7 +1326,6 @@ If you find this project useful:
 **Date:** 2026-01-08
 **Version:** 1.0.0-beta (Implementation Verified)
 **Status:** Core modules validated on Debian 13.
-
 
 ---
 

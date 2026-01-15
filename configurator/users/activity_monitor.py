@@ -277,6 +277,7 @@ class ActivityMonitor:
         command: Optional[str] = None,
         file_path: Optional[Path] = None,
         details: Optional[Dict] = None,
+        timestamp: Optional[datetime] = None,
     ) -> ActivityEvent:
         """
         Log a user activity event.
@@ -289,6 +290,7 @@ class ActivityMonitor:
             command: Command executed (if applicable)
             file_path: File accessed (if applicable)
             details: Additional details
+            timestamp: Custom timestamp (default: now)
 
         Returns:
             ActivityEvent object
@@ -296,7 +298,7 @@ class ActivityMonitor:
         event = ActivityEvent(
             user=user,
             activity_type=activity_type,
-            timestamp=datetime.now(),
+            timestamp=timestamp or datetime.now(),
             source_ip=source_ip,
             session_id=session_id,
             command=command,

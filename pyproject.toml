@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "debian-vps-configurator"
-version = "1.0.0"
+version = "2.0.0"
 description = "Transform Debian 13 VPS into a fully-featured remote desktop coding workstation"
 readme = "README.md"
 license = {text = "MIT"}

@@ -4,7 +4,7 @@ Debian VPS Workstation Configurator
 Transform Debian 13 VPS into a fully-featured remote desktop coding workstation.
 """
 
-__version__ = "1.0.0"
+__version__ = "2.0.0"
 __author__ = "VPS Configurator Team"
 __license__ = "MIT"
 
