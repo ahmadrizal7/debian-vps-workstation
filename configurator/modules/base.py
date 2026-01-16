@@ -624,7 +624,7 @@ Try these steps:
         return result.success
 
     def write_file(
-        self, path: str, content: str, mode: str = "w", backup: bool = False, **kwargs
+        self, path: str, content: str, mode: int = 0o644, backup: bool = False, **kwargs
     ) -> None:
         """
         Write content to file (with dry-run support).

@@ -3,7 +3,7 @@ from configurator.core.reporter.animations import ASCIIAnimation, SpinnerAnimati
 
 def test_spinner_animation_iteration():
     spinner = SpinnerAnimation("dots")
-    frames = list(zip(range(5), spinner, strict=True))
+    frames = list(zip(range(5), spinner, strict=False))
     assert len(frames) == 5
     assert frames[0][1] == "⠋"
 
