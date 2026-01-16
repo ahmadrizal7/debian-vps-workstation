@@ -1,0 +1,64 @@
+site_name: Debian VPS Workstation Configurator
+site_description: Transform your Debian 13 VPS into a fully-featured remote development workstation.
+site_author: Ahmad Rizal
+repo_url: https://github.com/ahmadrizal7/debian-vps-workstation
+edit_uri: edit/main/docs/
+
+theme:
+  name: material
+  palette:
+    # Palette toggle for light mode
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: teal
+      accent: purple
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+
+    # Palette toggle for dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: teal
+      accent: lime
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.top
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+
+nav:
+  - Home: index.md
+  - User Guide:
+      - Getting Started: user-guide/getting-started.md
+      - Installation: user-guide/getting-started.md
+      - CLI Reference: user-guide/cli-reference.md
+      - Working with Profiles: user-guide/getting-started.md # Placeholder link
+      - FAQ & Troubleshooting: user-guide/faq.md
+  - Developer Guide:
+      - Architecture: developer-guide/architecture.md
+      - Contributing: developer-guide/architecture.md # Placeholder link
+      - Module Development: developer-guide/architecture.md # Placeholder link
+  - API Reference:
+      - Overview: api-reference/index.md
+  - Deployment:
+      - Cloud Providers: deployment/index.md
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.tabbed:
+      alternate_style: true
+
+plugins:
+  - search

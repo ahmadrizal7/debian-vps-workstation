@@ -11,8 +11,8 @@ from unittest.mock import Mock
 
 import pytest
 
+from configurator.core.execution.parallel import ParallelExecutor
 from configurator.core.network import NetworkOperationType, NetworkOperationWrapper
-from configurator.core.parallel import ParallelModuleExecutor
 
 
 class TestConcurrentOperations:
@@ -245,30 +245,43 @@ class TestStressScenarios:
 
     def test_thread_pool_exhaustion(self):
         """Test behavior when thread pool is exhausted."""
-        executor = ParallelModuleExecutor(max_workers=2, logger=Mock())
+        from configurator.core.execution.base import ExecutionContext
+
+        executor = ParallelExecutor(max_workers=2, logger=Mock())
 
         # Create many modules
-        modules = {f"module_{i}": Mock() for i in range(100)}
+        contexts = []
+        for i in range(100):
+            module = Mock()
+            module.validate.return_value = True
+            module.configure.return_value = True
 
-        def slow_handler(name, module):
-            time.sleep(0.1)  # Simulate slow work
-            return True
+            # Slow down execution to force queuing
+            def slow_configure():
+                time.sleep(0.01)
+                return True
 
-        batches = [[f"module_{i}"] for i in range(100)]
+            module.configure.side_effect = slow_configure
+
+            context = ExecutionContext(
+                module_name=f"module_{i}", module_instance=module, dry_run=False
+            )
+            contexts.append(context)
 
         start = time.perf_counter()
-        results = executor.execute_batches(batches, modules, slow_handler)
+        results = executor.execute(contexts)
         duration = time.perf_counter() - start
 
         print("\nThread Pool Exhaustion Test:")
         print("  Modules: 100")
         print("  Workers: 2")
         print(f"  Duration: {duration:.2f}s")
-        print("  Expected: ~5s (100 * 0.1 / 2)")
+        # Expected: 100 modules * 0.01s / 2 workers = 0.5s approx
+        print("  Expected: ~0.5s")
 
         # Should complete all modules
         assert len(results) == 100
-        assert all(results.values())  # All succeeded
+        assert all(r.success for r in results.values())
 
 
 # Stress test configuration

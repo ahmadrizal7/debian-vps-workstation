@@ -33,7 +33,7 @@ def test_parallel_execution():
         graph.add_module("module-c", depends_on=["module-a"])
         graph.add_module("module-d", depends_on=["module-b", "module-c"])
 
-        batches = graph.get_parallel_batches()
+        batches = graph.get_execution_batches()
 
         # Check that batches are valid
         assert len(batches) >= 2, f"Expected at least 2 batches, got {len(batches)}"
@@ -56,7 +56,7 @@ def test_parallel_execution():
         circular_graph.add_module("c", depends_on=["b"])
 
         try:
-            circular_graph.get_parallel_batches()
+            circular_graph.get_execution_batches()
             print("  ❌ Circular dependency not detected")
             results["failed"] += 1
             results["tests"].append(("Circular Detection", "FAIL"))

@@ -14,8 +14,10 @@ from unittest.mock import Mock
 
 import pytest
 
+from configurator.core.dependency import DependencyGraph
+from configurator.core.execution.base import ExecutionContext
+from configurator.core.execution.parallel import ParallelExecutor
 from configurator.core.network import NetworkOperationType, NetworkOperationWrapper
-from configurator.core.parallel import DependencyGraph, ParallelModuleExecutor
 
 
 class PerformanceBenchmark:
@@ -66,7 +68,7 @@ class PerformanceBenchmark:
 
         baseline_duration = self.baselines[test_name]["duration"]
 
-        # Ignore regression if absolute difference is negligible (< 10ms)
+        # Ignore regression if absolute difference is negligible (<10ms)
         if abs(duration - baseline_duration) < 0.01:
             return True, "Performance stable (change < 10ms)"
 
@@ -94,6 +96,28 @@ def benchmark():
     return PerformanceBenchmark()
 
 
+def create_contexts(count: int, work_time: float = 0.0):
+    """Helper to create ExecutionContext objects with mock modules."""
+    contexts = []
+    for i in range(count):
+        module = Mock()
+        module.validate.return_value = True
+        module.configure.return_value = True
+        module.verify.return_value = True
+
+        if work_time > 0:
+
+            def slow_configure(delay=work_time):
+                time.sleep(delay)
+                return True
+
+            module.configure.side_effect = slow_configure
+
+        context = ExecutionContext(module_name=f"module_{i}", module_instance=module, dry_run=False)
+        contexts.append(context)
+    return contexts
+
+
 class TestDependencyGraphPerformance:
     """Test dependency graph performance."""
 
@@ -117,7 +141,7 @@ class TestDependencyGraphPerformance:
             graph = DependencyGraph()
             for module, deps in COMPLETE_MODULE_DEPENDENCIES.items():
                 graph.add_module(module, depends_on=deps)
-            batches = graph.get_parallel_batches()
+            batches = graph.get_execution_batches()
 
             duration = time.perf_counter() - start
             durations.append(duration)
@@ -157,7 +181,7 @@ class TestDependencyGraphPerformance:
             graph.add_module(module, depends_on=deps)
 
         try:
-            batches = graph.get_parallel_batches()
+            batches = graph.get_execution_batches()
         except ValueError:
             pass  # Expected if cycle exists
 
@@ -247,7 +271,6 @@ class TestModuleLoadingPerformance:
     def test_lazy_loading_effectiveness(self, benchmark):
         """Test that lazy loading reduces startup time."""
         # Without lazy loading (import all)
-        # Without lazy loading (import all)
         start = time.perf_counter()
         import importlib
 
@@ -333,18 +356,12 @@ class TestMemoryUsage:
         mem_before = process.memory_info().rss / 1024 / 1024  # MB
 
         # Simulate many module executions
-        executor = ParallelModuleExecutor(max_workers=4, logger=Mock())
+        executor = ParallelExecutor(max_workers=4, logger=Mock())
 
         for iteration in range(10):
-            # Create mock modules
-            modules = {f"module_{i}": Mock() for i in range(20)}
-
-            def mock_handler(name, module):
-                time.sleep(0.01)  # Simulate work
-                return True
-
-            batches = [[f"module_{i}" for i in range(5)] for _ in range(4)]
-            executor.execute_batches(batches, modules, mock_handler)
+            # Create mock modules using ExecutionContext
+            contexts = create_contexts(20, work_time=0.01)
+            executor.execute(contexts)
 
         # Force garbage collection
         gc.collect()

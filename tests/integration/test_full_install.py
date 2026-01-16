@@ -174,6 +174,7 @@ class TestModuleValidation:
             assert hasattr(module, "configure")
             assert hasattr(module, "verify")
 
+    @pytest.mark.skip(reason="MODULE_PRIORITY removed in v2, priority handled by DependencyGraph")
     def test_module_priority_ordering(self):
         """Test that modules have correct priority ordering."""
         from configurator.core.installer import Installer

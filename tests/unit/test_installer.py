@@ -26,7 +26,13 @@ def test_installer_uses_container():
     # Setup
     config = MagicMock(spec=ConfigManager)
     config.get_enabled_modules.return_value = ["mock_module"]
-    config.get.return_value = {}  # For module config lookups
+
+    def config_get_side_effect(key, default=None):
+        if key == "performance.max_workers":
+            return 4
+        return default or {}
+
+    config.get.side_effect = config_get_side_effect
 
     container = Container()
 
@@ -37,7 +43,8 @@ def test_installer_uses_container():
     installer = Installer(config=config, container=container)
 
     # Mock internal components to avoid complex setup
-    installer.validator.validate_all = MagicMock()
+    installer.validator_orchestrator = MagicMock()
+    installer.validator_orchestrator.run_validation.return_value = (True, [])
     installer.plugin_manager.load_plugins = MagicMock()
 
     # Execute

@@ -1,0 +1,49 @@
+name: beginner
+display_name: "Beginner (Recommended)"
+description: "Safe defaults with essential tools. Perfect for getting started quickly."
+category: beginner
+version: "1.0.0"
+author: "Debian VPS Configurator"
+
+enabled_modules:
+  - system
+  - security
+  - desktop
+  - python
+  - git
+  - vscode
+
+module_config:
+  desktop:
+    xrdp_port: 3389
+    compositor: "picom-basic" # Basic performance
+
+  python:
+    versions:
+      - "3.12"
+    install_pipx: true
+    install_poetry: false # Too advanced for beginners
+
+  vscode:
+    install_extensions: true
+    extensions:
+      - "ms-python.python"
+      - "esbenp.prettier-vscode"
+
+  security:
+    ufw:
+      enabled: true
+      ssh_port: 22
+      ssh_rate_limit: true
+    fail2ban:
+      enabled: true
+
+system_config:
+  hostname: "dev-workstation"
+  timezone: "UTC"
+  swap_size_gb: 2
+
+tags:
+  - recommended
+  - beginner
+  - quick-start

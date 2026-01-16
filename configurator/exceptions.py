@@ -260,3 +260,17 @@ class UserCancelledError(ConfiguratorError):
             why="You chose to cancel the operation",
             how="Run the command again when you're ready to proceed",
         )
+
+
+class ProfileError(ConfiguratorError):
+    """
+    Raised for profile-related errors.
+
+    Common Causes:
+    - Profile not found
+    - Invalid profile format
+    - Profile validation failed
+    """
+
+    def __init__(self, what: str, why: str = "", how: str = "", **kwargs):
+        super().__init__(what=what, why=why, how=how, **kwargs)

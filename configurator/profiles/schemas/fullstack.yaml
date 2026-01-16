@@ -1,0 +1,55 @@
+name: fullstack
+display_name: "Full-Stack Developer"
+description: "Complete web development stack with multiple languages and databases."
+category: developer
+version: "1.0.0"
+
+enabled_modules:
+  - system
+  - security
+  - rbac
+  - desktop
+  - python
+  - nodejs
+  - golang
+  - rust
+  - docker
+  - git
+  - databases
+  - vscode
+  - cursor
+
+module_config:
+  desktop:
+    compositor: "picom-advanced" # Better performance
+
+  python:
+    versions:
+      - "3.11"
+      - "3.12"
+    install_pipx: true
+    install_poetry: true
+    install_uv: true
+
+  nodejs:
+    versions:
+      - "18"
+      - "20"
+    install_yarn: true
+    install_pnpm: true
+
+  databases:
+    postgres: true
+    mysql: true
+    redis: true
+    mongodb: true
+
+  docker:
+    install_compose: true
+    install_buildx: true
+
+tags:
+  - developer
+  - fullstack
+  - web-development
+  - advanced

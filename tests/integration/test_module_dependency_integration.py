@@ -4,7 +4,7 @@ Integration tests for module dependency resolution and execution order.
 
 import pytest
 
-from configurator.core.parallel import DependencyGraph
+from configurator.core.dependency import DependencyGraph
 from configurator.modules.base import ConfigurationModule
 
 
@@ -52,7 +52,7 @@ class TestModuleDependencies:
         graph.add_module("module_b", depends_on=["module_a"])
         graph.add_module("module_d", depends_on=["module_a"])
 
-        batches = graph.get_parallel_batches()
+        batches = graph.get_execution_batches()
         # Batches is list of lists: [['module_a'], ['module_b', 'module_d'], ['module_c']]
 
         flattened = [m for batch in batches for m in batch]
@@ -70,7 +70,7 @@ class TestModuleDependencies:
         graph.add_module("desktop", depends_on=["system", "security"])
         graph.add_module("system", depends_on=[])
 
-        batches = graph.get_parallel_batches()
+        batches = graph.get_execution_batches()
         flattened = [m for batch in batches for m in batch]
 
         assert flattened.index("system") < flattened.index("security")
@@ -84,7 +84,7 @@ class TestModuleDependencies:
         graph.add_module("module_b", depends_on=["module_a"])
 
         with pytest.raises(Exception):
-            graph.get_parallel_batches()
+            graph.get_execution_batches()
 
     def test_diamond_dependency_resolution(self):
         """Test diamond dependency structure."""
@@ -96,7 +96,7 @@ class TestModuleDependencies:
         graph.add_module("C", depends_on=["A"])
         graph.add_module("A", depends_on=[])
 
-        batches = graph.get_parallel_batches()
+        batches = graph.get_execution_batches()
         flattened = [m for batch in batches for m in batch]
 
         assert flattened[0] == "A"

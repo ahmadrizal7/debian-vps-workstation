@@ -276,6 +276,64 @@ def wizard(ctx: click.Context):
 
 @main.command()
 @click.option(
+    "--demo",
+    is_flag=True,
+    default=False,
+    help="Run dashboard in demo mode with mock data",
+)
+@click.pass_context
+def dashboard(ctx: click.Context, demo: bool):
+    """
+    Launch TUI dashboard for installation monitoring.
+
+    Provides a full-screen terminal UI with:
+    - Real-time module status
+    - System resource monitoring
+    - Activity log
+    - Keyboard controls (p=pause, r=resume, q=quit)
+
+    Requires: textual (pip install textual)
+    """
+    logger = ctx.obj["logger"]
+
+    try:
+        from configurator.ui.tui_dashboard import InstallationDashboard
+    except ImportError:
+        console.print(
+            "[red]Error: TUI dashboard requires textual[/red]\n"
+            "[yellow]Install with:[/yellow] pip install textual"
+        )
+        sys.exit(1)
+
+    try:
+        app = InstallationDashboard()
+
+        if demo:
+            # Demo mode - show example data
+            console.print("[cyan]Launching dashboard in demo mode...[/cyan]")
+
+            # This would typically be run with real installation
+            # For now, just start the app
+            app.run()
+        else:
+            # Real mode - would be integrated with installer
+            console.print(
+                "[yellow]Note: Dashboard integration with installer coming soon[/yellow]\n"
+                "[cyan]Running in demo mode for now...[/cyan]"
+            )
+            app.run()
+
+    except KeyboardInterrupt:
+        console.print("\n[yellow]Dashboard closed.[/yellow]")
+        sys.exit(0)
+    except Exception as e:
+        logger.exception("Dashboard failed")
+        console.print(f"[red]Error: {e}[/red]")
+        sys.exit(1)
+
+
+@main.command()
+@click.option(
     "--profile",
     "-p",
     type=click.Choice(["beginner", "intermediate", "advanced"]),
@@ -379,6 +437,58 @@ def rollback(
         console.print("\n[red]✗ Rollback encountered errors. Check the output above.[/red]")
 
     sys.exit(0 if success else 1)
+
+
+@main.command()
+@click.option("-p", "--profile", help="Profile to visualize (e.g., beginner, fullstack)")
+@click.option(
+    "-f",
+    "--format",
+    type=click.Choice(["ascii", "mermaid", "mermaid-file"]),
+    default="ascii",
+    help="Output format",
+)
+@click.option("-o", "--output", type=click.Path(), help="Output file for mermaid export")
+def visualize(profile: Optional[str], format: str, output: Optional[str]):
+    """
+    Visualize dependencies for a profile.
+
+    Displays the dependency tree or exports it to Mermaid format.
+    If no profile is specified, uses the 'beginner' profile by default.
+    """
+    from configurator.profiles.manager import ProfileManager
+    from configurator.ui.visualizers.dependency_graph import DependencyGraphVisualizer
+    from configurator.ui.visualizers.mermaid_exporter import MermaidExporter
+
+    manager = ProfileManager()
+
+    # Resolve modules from profile
+    profile_name = profile or "beginner"
+    try:
+        profile_obj = manager.load_profile(profile_name)
+        modules = profile_obj.enabled_modules
+    except Exception as e:
+        console.print(f"[red]Error loading profile '{profile_name}': {e}[/red]")
+        sys.exit(1)
+
+    if format == "ascii":
+        viz = DependencyGraphVisualizer(modules)
+        console.print(f"\n[bold]Dependency Graph for '{profile_name}' Profile[/bold]\n")
+        console.print(viz.render_tree())
+
+    elif format == "mermaid":
+        exporter = MermaidExporter(modules)
+        console.print(exporter.export_flowchart())
+
+    elif format == "mermaid-file":
+        if not output:
+            console.print("[red]Output file required for mermaid-file format[/red]")
+            sys.exit(1)
+
+        exporter = MermaidExporter(modules)
+        path = Path(output)
+        exporter.save_to_file(path)
+        console.print(f"[green]Mermaid diagram saved to {path}[/green]")
 
 
 @main.command()
